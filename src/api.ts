@@ -6,28 +6,27 @@
 const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/api';
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function req<T>(
+  path: string,
+  options: RequestInit = {},
+  token?: string,
+): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = Array.isArray(data?.message)
-      ? data.message.join(', ')
-      : data?.message || 'Request failed';
+    const msg = Array.isArray((data as any)?.message)
+      ? (data as any).message.join(', ')
+      : (data as any)?.message || 'Request failed';
     throw new Error(msg);
   }
   return data as T;
-}
-
-async function get<T>(path: string, token: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error('Unauthorized');
-  return (await res.json()) as T;
 }
 
 export interface AuthUser {
@@ -36,16 +35,82 @@ export interface AuthUser {
   name: string | null;
 }
 
+export interface ServiceItem {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+}
+
+export interface Booking {
+  id: string;
+  orderNumber: string;
+  items: { name: string; price: number }[];
+  scheduledDate: string;
+  timeSlot: string;
+  address: string;
+  totalAmount: number;
+  advanceAmount: number;
+  advancePaid: boolean;
+  status: string;
+}
+
+export interface CreateBookingResult {
+  booking: Booking;
+  payment: {
+    required: boolean;
+    provider?: 'razorpay' | 'test';
+    razorpayOrderId?: string;
+    keyId?: string;
+    amount?: number;
+  };
+}
+
 export const api = {
   requestOtp: (mobile: string) =>
-    post<{ message: string }>('/auth/otp/request', { mobile }),
+    req<{ message: string }>('/auth/otp/request', {
+      method: 'POST',
+      body: JSON.stringify({ mobile }),
+    }),
 
   verifyOtp: (mobile: string, code: string) =>
-    post<{ accessToken: string; user: AuthUser }>('/auth/otp/verify', {
-      mobile,
-      code,
+    req<{ accessToken: string; user: AuthUser }>('/auth/otp/verify', {
+      method: 'POST',
+      body: JSON.stringify({ mobile, code }),
     }),
 
   me: (token: string) =>
-    get<{ role: string; user: AuthUser }>('/auth/me', token),
+    req<{ role: string; user: AuthUser }>('/auth/me', {}, token),
+
+  listServices: (pincode: string, search: string) =>
+    req<ServiceItem[]>(
+      `/services?pincode=${encodeURIComponent(pincode)}${
+        search ? `&search=${encodeURIComponent(search)}` : ''
+      }`,
+    ),
+
+  createBooking: (
+    token: string,
+    payload: {
+      serviceIds: string[];
+      scheduledDate: string;
+      timeSlot: string;
+      address: string;
+    },
+  ) =>
+    req<CreateBookingResult>(
+      '/bookings',
+      { method: 'POST', body: JSON.stringify(payload) },
+      token,
+    ),
+
+  // Test-mode advance confirmation (dev only — live uses Razorpay checkout).
+  testConfirm: (token: string, bookingId: string) =>
+    req<Booking>(
+      '/payments/test-confirm',
+      { method: 'POST', body: JSON.stringify({ bookingId }) },
+      token,
+    ),
+
+  myBookings: (token: string) => req<Booking[]>('/bookings/mine', {}, token),
 };
