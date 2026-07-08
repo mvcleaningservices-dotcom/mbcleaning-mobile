@@ -42,6 +42,7 @@ export default function App() {
   // auth inputs
   const [mobile, setMobile] = useState('');
   const [code, setCode] = useState('');
+  const [devOtp, setDevOtp] = useState<string | null>(null);
 
   // discovery / booking
   const [pincode, setPincode] = useState('');
@@ -84,7 +85,8 @@ export default function App() {
   const sendOtp = async () => {
     setBusy(true);
     try {
-      await api.requestOtp(mobile.trim());
+      const res = await api.requestOtp(mobile.trim());
+      setDevOtp(res.devOtp ?? null);
       setScreen('otp');
     } catch (e: any) {
       Alert.alert('Could not send OTP', e.message);
@@ -247,6 +249,9 @@ export default function App() {
       {screen === 'otp' && (
         <View style={styles.card}>
           <Text style={styles.label}>Enter the 6-digit OTP sent to {mobile}</Text>
+          {devOtp && (
+            <Text style={styles.devHint}>Dev mode — OTP is {devOtp}</Text>
+          )}
           <TextInput
             style={styles.input}
             keyboardType="number-pad"
@@ -481,4 +486,5 @@ const styles = StyleSheet.create({
   success: { fontSize: 20, fontWeight: '700', color: '#0a7d33', textAlign: 'center' },
   orderNo: { fontSize: 22, fontWeight: '800', textAlign: 'center', color: '#1f6feb' },
   status: { fontSize: 12, color: '#0a7d33', fontWeight: '600', textTransform: 'capitalize' },
+  devHint: { backgroundColor: '#fff8e1', color: '#8a6d00', padding: 8, borderRadius: 6, fontSize: 13, textAlign: 'center' },
 });

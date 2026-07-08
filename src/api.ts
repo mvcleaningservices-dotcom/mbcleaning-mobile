@@ -68,7 +68,7 @@ export interface CreateBookingResult {
 
 export const api = {
   requestOtp: (mobile: string) =>
-    req<{ message: string }>('/auth/otp/request', {
+    req<{ message: string; devOtp?: string }>('/auth/otp/request', {
       method: 'POST',
       body: JSON.stringify({ mobile }),
     }),
