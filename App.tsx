@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { api, AuthUser, Booking, ServiceItem, WalletState } from './src/api';
+import { api, AuthUser, Booking, Profile, ServiceItem, WalletState } from './src/api';
 import { session } from './src/session';
 
 type Screen =
@@ -26,7 +26,8 @@ type Screen =
   | 'confirmation'
   | 'bookings'
   | 'orderDetail'
-  | 'wallet';
+  | 'wallet'
+  | 'profile';
 
 const TIME_SLOTS = [
   '08:00-10:00',
@@ -64,7 +65,40 @@ export default function App() {
   const [wallet, setWallet] = useState<WalletState>({ balance: 0, history: [] });
   const [topupAmt, setTopupAmt] = useState('');
 
+  // profile
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileName, setProfileName] = useState('');
+  const [profileAddress, setProfileAddress] = useState('');
+  const [profilePincode, setProfilePincode] = useState('');
+
   const [busy, setBusy] = useState(false);
+
+  /**
+   * Resolve where to land after auth: prefer the pincode saved on the
+   * consumer's backend profile (scope §3.2.7) so it follows them across
+   * devices/reinstalls; fall back to whatever's saved locally on this device.
+   */
+  const resolvePincodeAndProceed = async (authToken: string) => {
+    let pin = '';
+    try {
+      const p = await api.getProfile(authToken);
+      setProfile(p);
+      setProfileName(p.name ?? '');
+      setProfileAddress(p.address);
+      setProfilePincode(p.pincode);
+      pin = p.pincode || (await session.getPincode()) || '';
+    } catch {
+      pin = (await session.getPincode()) || '';
+    }
+    if (pin) {
+      setPincode(pin);
+      await session.savePincode(pin);
+      await loadServices(pin, '');
+      setScreen('services');
+    } else {
+      setScreen('pincode');
+    }
+  };
 
   // ---- Auto-login on launch ----
   useEffect(() => {
@@ -75,14 +109,7 @@ export default function App() {
         const me = await api.me(t);
         setToken(t);
         setUser(me.user);
-        const savedPin = await session.getPincode();
-        if (savedPin) {
-          setPincode(savedPin);
-          await loadServices(savedPin, '');
-          setScreen('services');
-        } else {
-          setScreen('pincode');
-        }
+        await resolvePincodeAndProceed(t);
       } catch {
         await session.clear();
         setScreen('mobile');
@@ -111,14 +138,7 @@ export default function App() {
       await session.saveToken(res.accessToken);
       setToken(res.accessToken);
       setUser(res.user);
-      const savedPin = await session.getPincode();
-      if (savedPin) {
-        setPincode(savedPin);
-        await loadServices(savedPin, '');
-        setScreen('services');
-      } else {
-        setScreen('pincode');
-      }
+      await resolvePincodeAndProceed(res.accessToken);
     } catch (e: any) {
       Alert.alert('Verification failed', e.message);
     } finally {
@@ -150,6 +170,11 @@ export default function App() {
     setBusy(true);
     try {
       await session.savePincode(pincode);
+      if (token) {
+        // Persist to the backend profile too, so it follows the consumer
+        // across devices/reinstalls (scope §3.2.7), not just this device.
+        await api.updateProfile(token, { pincode }).catch(() => {});
+      }
       await loadServices(pincode, '');
       setScreen('services');
     } catch (e: any) {
@@ -291,6 +316,54 @@ export default function App() {
     }
   };
 
+  // ---- Profile ----
+  const openProfile = async () => {
+    if (!token) return;
+    setBusy(true);
+    try {
+      const [p, w] = await Promise.all([api.getProfile(token), api.getWallet(token)]);
+      setProfile(p);
+      setProfileName(p.name ?? '');
+      setProfileAddress(p.address);
+      setProfilePincode(p.pincode);
+      setWallet(w);
+      setScreen('profile');
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveProfile = async () => {
+    if (!token) return;
+    if (profilePincode && !/^\d{6}$/.test(profilePincode)) {
+      return Alert.alert('Invalid pincode', 'Enter a 6-digit pincode');
+    }
+    setBusy(true);
+    try {
+      const updated = await api.updateProfile(token, {
+        name: profileName.trim() || undefined,
+        address: profileAddress.trim() || undefined,
+        pincode: profilePincode.trim() || undefined,
+      });
+      setProfile(updated);
+
+      // Pincode changed -> re-filter services (scope §3.2.7) and remember it.
+      if (updated.pincode && updated.pincode !== pincode) {
+        setPincode(updated.pincode);
+        await session.savePincode(updated.pincode);
+        await loadServices(updated.pincode, '');
+      }
+      Alert.alert('Saved', 'Your profile has been updated.');
+      setScreen('services');
+    } catch (e: any) {
+      Alert.alert('Could not save profile', e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // ---- Render ----
   return (
     <View style={styles.container}>
@@ -396,12 +469,15 @@ export default function App() {
               disabled={selectedList.length === 0}
             />
           </View>
-          <View style={styles.rowBetween}>
+          <View style={styles.navRow}>
             <TouchableOpacity onPress={openMyBookings}>
               <Text style={styles.link}>My Bookings</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={openWallet}>
               <Text style={styles.link}>Wallet (₹{wallet.balance})</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={openProfile}>
+              <Text style={styles.link}>Profile</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -523,6 +599,9 @@ export default function App() {
                   <Text style={styles.muted}>
                     {b.scheduledDate} · {b.timeSlot}
                   </Text>
+                  {b.assignedWorkerName && (
+                    <Text style={styles.muted}>Worker: {b.assignedWorkerName}</Text>
+                  )}
                   {b.remainingDue !== undefined && b.remainingDue > 0 && (
                     <Text style={styles.dueTag}>₹{b.remainingDue} due after service</Text>
                   )}
@@ -535,9 +614,12 @@ export default function App() {
             ))}
           </ScrollView>
           <Button title="Book a Service" onPress={() => setScreen('services')} />
-          <View style={styles.rowBetween}>
+          <View style={styles.navRow}>
             <TouchableOpacity onPress={openWallet}>
               <Text style={styles.link}>Wallet (₹{wallet.balance})</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={openProfile}>
+              <Text style={styles.link}>Profile</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={logout}>
               <Text style={[styles.link, { color: '#b00' }]}>Logout</Text>
@@ -555,6 +637,9 @@ export default function App() {
           </Text>
           <Text style={styles.muted}>
             {activeOrder.scheduledDate} · {activeOrder.timeSlot}
+          </Text>
+          <Text style={styles.muted}>
+            Worker: {activeOrder.assignedWorkerName ?? 'Not yet assigned'}
           </Text>
           <View style={styles.divider} />
           <View style={styles.rowBetween}>
@@ -660,6 +745,50 @@ export default function App() {
           </TouchableOpacity>
         </View>
       )}
+
+      {screen === 'profile' && (
+        <ScrollView contentContainerStyle={styles.card}>
+          <Text style={styles.label}>My Profile</Text>
+          <Text style={styles.muted}>Mobile: {profile?.mobile}</Text>
+
+          <Text style={styles.muted}>Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Your name"
+            value={profileName}
+            onChangeText={setProfileName}
+          />
+
+          <Text style={styles.muted}>Address</Text>
+          <TextInput
+            style={[styles.input, { height: 72 }]}
+            placeholder="Flat, street, landmark"
+            value={profileAddress}
+            onChangeText={setProfileAddress}
+            multiline
+          />
+
+          <Text style={styles.muted}>Pincode</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="number-pad"
+            placeholder="6-digit pincode"
+            value={profilePincode}
+            onChangeText={setProfilePincode}
+            maxLength={6}
+          />
+
+          <Text style={styles.muted}>Wallet balance: ₹{wallet.balance}</Text>
+
+          <Button title={busy ? 'Saving…' : 'Save Profile'} onPress={saveProfile} disabled={busy} />
+          <TouchableOpacity onPress={() => setScreen('services')}>
+            <Text style={styles.link}>Back</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={logout}>
+            <Text style={[styles.link, { color: '#b00' }]}>Logout</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -674,6 +803,7 @@ const styles = StyleSheet.create({
   link: { color: '#1f6feb', textAlign: 'center', marginTop: 8 },
   muted: { color: '#777', fontSize: 13 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  navRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   serviceCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#e2e2e2', borderRadius: 10, padding: 12, marginBottom: 8 },
   serviceCardSel: { borderColor: '#1f6feb', backgroundColor: '#f0f6ff' },
   serviceName: { fontSize: 15, fontWeight: '600' },

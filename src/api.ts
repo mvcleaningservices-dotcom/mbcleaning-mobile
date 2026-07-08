@@ -53,6 +53,7 @@ export interface Booking {
   advanceAmount: number;
   advancePaid: boolean;
   status: string;
+  assignedWorkerName?: string | null;
   remainingDue?: number;
   finalPayment?: {
     walletPaid: number;
@@ -60,6 +61,14 @@ export interface Booking {
     onlinePaid: number;
     settled: boolean;
   };
+}
+
+export interface Profile {
+  id: string;
+  mobile: string;
+  name: string | null;
+  address: string;
+  pincode: string;
 }
 
 export interface WalletTxn {
@@ -160,6 +169,19 @@ export const api = {
     req<Booking>(
       `/bookings/${bookingId}/final-payment`,
       { method: 'POST', body: JSON.stringify({ walletAmount }) },
+      token,
+    ),
+
+  // ---- Profile (Phase 5) ----
+  getProfile: (token: string) => req<Profile>('/users/me', {}, token),
+
+  updateProfile: (
+    token: string,
+    dto: { name?: string; address?: string; pincode?: string },
+  ) =>
+    req<Profile>(
+      '/users/me',
+      { method: 'PATCH', body: JSON.stringify(dto) },
       token,
     ),
 };
