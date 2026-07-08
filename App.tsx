@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { api, AuthUser, Booking, ServiceItem } from './src/api';
+import { api, AuthUser, Booking, ServiceItem, WalletState } from './src/api';
 import { session } from './src/session';
 
 type Screen =
@@ -24,7 +24,9 @@ type Screen =
   | 'details'
   | 'summary'
   | 'confirmation'
-  | 'bookings';
+  | 'bookings'
+  | 'orderDetail'
+  | 'wallet';
 
 const TIME_SLOTS = [
   '08:00-10:00',
@@ -52,8 +54,15 @@ export default function App() {
   const [date, setDate] = useState('');
   const [timeSlot, setTimeSlot] = useState('');
   const [address, setAddress] = useState('');
+  const [payAdvanceFromWallet, setPayAdvanceFromWallet] = useState(false);
   const [confirmed, setConfirmed] = useState<Booking | null>(null);
   const [myBookings, setMyBookings] = useState<Booking[]>([]);
+  const [activeOrder, setActiveOrder] = useState<Booking | null>(null);
+  const [finalWalletAmt, setFinalWalletAmt] = useState('');
+
+  // wallet
+  const [wallet, setWallet] = useState<WalletState>({ balance: 0, history: [] });
+  const [topupAmt, setTopupAmt] = useState('');
 
   const [busy, setBusy] = useState(false);
 
@@ -181,12 +190,13 @@ export default function App() {
         scheduledDate: date,
         timeSlot,
         address: address.trim(),
+        advanceMethod: payAdvanceFromWallet ? 'wallet' : 'razorpay',
       });
 
       let finalBooking = res.booking;
 
       if (!res.payment.required) {
-        // Advance is ₹0 — already confirmed.
+        // Advance is ₹0, or was paid from wallet — already confirmed.
       } else if (res.payment.provider === 'test') {
         finalBooking = await api.testConfirm(token, res.booking.id);
       } else if (res.payment.provider === 'razorpay') {
@@ -202,6 +212,7 @@ export default function App() {
       setDate('');
       setTimeSlot('');
       setAddress('');
+      setPayAdvanceFromWallet(false);
       setScreen('confirmation');
     } catch (e: any) {
       Alert.alert('Booking failed', e.message);
@@ -218,6 +229,63 @@ export default function App() {
       setScreen('bookings');
     } catch (e: any) {
       Alert.alert('Error', e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openOrderDetail = (b: Booking) => {
+    setActiveOrder(b);
+    setFinalWalletAmt('');
+    setScreen('orderDetail');
+  };
+
+  const settleFinalPayment = async () => {
+    if (!token || !activeOrder) return;
+    const walletAmt = Math.max(0, Math.floor(Number(finalWalletAmt) || 0));
+    setBusy(true);
+    try {
+      const updated = await api.payFinal(token, activeOrder.id, walletAmt);
+      setActiveOrder(updated);
+      setMyBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+      Alert.alert('Payment settled', 'Final payment recorded.');
+    } catch (e: any) {
+      Alert.alert('Could not settle payment', e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ---- Wallet ----
+  const openWallet = async () => {
+    if (!token) return;
+    setBusy(true);
+    try {
+      setWallet(await api.getWallet(token));
+      setScreen('wallet');
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const topUp = async () => {
+    if (!token) return;
+    const amount = Math.floor(Number(topupAmt) || 0);
+    if (amount < 1) return Alert.alert('Enter a valid amount');
+    setBusy(true);
+    try {
+      const res = await api.topupWallet(token, amount);
+      if (res.payment.provider === 'test') {
+        await api.confirmTopupTest(token, res.transactionId);
+      } else {
+        Alert.alert('Payment', 'Razorpay checkout opens here in production.');
+      }
+      setWallet(await api.getWallet(token));
+      setTopupAmt('');
+    } catch (e: any) {
+      Alert.alert('Top-up failed', e.message);
     } finally {
       setBusy(false);
     }
@@ -328,9 +396,14 @@ export default function App() {
               disabled={selectedList.length === 0}
             />
           </View>
-          <TouchableOpacity onPress={openMyBookings}>
-            <Text style={styles.link}>My Bookings</Text>
-          </TouchableOpacity>
+          <View style={styles.rowBetween}>
+            <TouchableOpacity onPress={openMyBookings}>
+              <Text style={styles.link}>My Bookings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={openWallet}>
+              <Text style={styles.link}>Wallet (₹{wallet.balance})</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -398,6 +471,15 @@ export default function App() {
             Pay a small advance now to confirm. Balance is paid after service
             (wallet / UPI / cash).
           </Text>
+          <Pressable
+            style={styles.checkboxRow}
+            onPress={() => setPayAdvanceFromWallet((v) => !v)}
+          >
+            <Text style={styles.check}>{payAdvanceFromWallet ? '☑' : '☐'}</Text>
+            <Text style={styles.muted}>
+              Pay advance from wallet (balance ₹{wallet.balance})
+            </Text>
+          </Pressable>
           <Button
             title={busy ? 'Processing…' : 'Pay Advance & Confirm'}
             onPress={placeBooking}
@@ -432,7 +514,7 @@ export default function App() {
           <ScrollView style={{ flex: 1 }}>
             {myBookings.length === 0 && <Text style={styles.muted}>No bookings yet.</Text>}
             {myBookings.map((b) => (
-              <View key={b.id} style={styles.serviceCard}>
+              <Pressable key={b.id} style={styles.serviceCard} onPress={() => openOrderDetail(b)}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.serviceName}>{b.orderNumber}</Text>
                   <Text style={styles.muted}>
@@ -441,17 +523,140 @@ export default function App() {
                   <Text style={styles.muted}>
                     {b.scheduledDate} · {b.timeSlot}
                   </Text>
+                  {b.remainingDue !== undefined && b.remainingDue > 0 && (
+                    <Text style={styles.dueTag}>₹{b.remainingDue} due after service</Text>
+                  )}
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={styles.price}>₹{b.totalAmount}</Text>
                   <Text style={styles.status}>{b.status}</Text>
                 </View>
-              </View>
+              </Pressable>
             ))}
           </ScrollView>
           <Button title="Book a Service" onPress={() => setScreen('services')} />
-          <TouchableOpacity onPress={logout}>
-            <Text style={[styles.link, { color: '#b00' }]}>Logout</Text>
+          <View style={styles.rowBetween}>
+            <TouchableOpacity onPress={openWallet}>
+              <Text style={styles.link}>Wallet (₹{wallet.balance})</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={logout}>
+              <Text style={[styles.link, { color: '#b00' }]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {screen === 'orderDetail' && activeOrder && (
+        <ScrollView contentContainerStyle={styles.card}>
+          <Text style={styles.label}>{activeOrder.orderNumber}</Text>
+          <Text style={styles.status}>{activeOrder.status}</Text>
+          <Text style={styles.muted}>
+            {activeOrder.items.map((i) => `${i.name} (₹${i.price})`).join(', ')}
+          </Text>
+          <Text style={styles.muted}>
+            {activeOrder.scheduledDate} · {activeOrder.timeSlot}
+          </Text>
+          <View style={styles.divider} />
+          <View style={styles.rowBetween}>
+            <Text>Total</Text>
+            <Text style={styles.bold}>₹{activeOrder.totalAmount}</Text>
+          </View>
+          <View style={styles.rowBetween}>
+            <Text>Advance {activeOrder.advancePaid ? '(paid)' : '(unpaid)'}</Text>
+            <Text>₹{activeOrder.advanceAmount}</Text>
+          </View>
+
+          {activeOrder.finalPayment && (
+            <>
+              <View style={styles.divider} />
+              {activeOrder.finalPayment.settled ? (
+                <View>
+                  <Text style={styles.bold}>Final payment settled ✓</Text>
+                  <Text style={styles.muted}>
+                    Wallet ₹{activeOrder.finalPayment.walletPaid} · Cash ₹
+                    {activeOrder.finalPayment.cashPaid}
+                  </Text>
+                </View>
+              ) : (activeOrder.remainingDue ?? 0) > 0 ? (
+                <View>
+                  <Text style={styles.bold}>
+                    Pay remaining ₹{activeOrder.remainingDue}
+                  </Text>
+                  <Text style={styles.muted}>
+                    Enter how much to pay from wallet (balance ₹{wallet.balance}). The
+                    rest is paid in cash to the worker.
+                  </Text>
+                  <TextInput
+                    style={styles.input}
+                    keyboardType="number-pad"
+                    placeholder="Wallet amount (0 = all cash)"
+                    value={finalWalletAmt}
+                    onChangeText={setFinalWalletAmt}
+                  />
+                  <Text style={styles.muted}>
+                    Cash to pay: ₹
+                    {Math.max(
+                      0,
+                      (activeOrder.remainingDue ?? 0) -
+                        Math.min(
+                          Math.max(0, Math.floor(Number(finalWalletAmt) || 0)),
+                          activeOrder.remainingDue ?? 0,
+                        ),
+                    )}
+                  </Text>
+                  <Button
+                    title={busy ? 'Settling…' : 'Settle Final Payment'}
+                    onPress={settleFinalPayment}
+                    disabled={busy}
+                  />
+                </View>
+              ) : (
+                <Text style={styles.muted}>No balance due.</Text>
+              )}
+            </>
+          )}
+
+          <TouchableOpacity onPress={() => setScreen('bookings')}>
+            <Text style={styles.link}>Back to My Bookings</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+
+      {screen === 'wallet' && (
+        <View style={styles.flexCard}>
+          <Text style={styles.label}>My Wallet</Text>
+          <Text style={styles.walletBalance}>₹{wallet.balance}</Text>
+          <View style={styles.rowBetween}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              keyboardType="number-pad"
+              placeholder="Top-up amount"
+              value={topupAmt}
+              onChangeText={setTopupAmt}
+            />
+            <Button title={busy ? 'Adding…' : 'Add Money'} onPress={topUp} disabled={busy} />
+          </View>
+          <Text style={[styles.label, { fontSize: 15, marginTop: 12 }]}>
+            Transaction history
+          </Text>
+          <ScrollView style={{ flex: 1 }}>
+            {wallet.history.length === 0 && (
+              <Text style={styles.muted}>No transactions yet.</Text>
+            )}
+            {wallet.history.map((t) => (
+              <View key={t.id} style={styles.rowBetween}>
+                <View>
+                  <Text style={{ textTransform: 'capitalize' }}>{t.type}</Text>
+                  <Text style={styles.muted}>{t.description}</Text>
+                </View>
+                <Text style={t.type === 'topup' ? styles.credit : styles.debit}>
+                  {t.type === 'topup' ? '+' : '-'}₹{t.amount}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+          <TouchableOpacity onPress={() => setScreen(myBookings.length ? 'bookings' : 'services')}>
+            <Text style={styles.link}>Back</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -487,4 +692,9 @@ const styles = StyleSheet.create({
   orderNo: { fontSize: 22, fontWeight: '800', textAlign: 'center', color: '#1f6feb' },
   status: { fontSize: 12, color: '#0a7d33', fontWeight: '600', textTransform: 'capitalize' },
   devHint: { backgroundColor: '#fff8e1', color: '#8a6d00', padding: 8, borderRadius: 6, fontSize: 13, textAlign: 'center' },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dueTag: { fontSize: 11, color: '#b45309', fontWeight: '600', marginTop: 2 },
+  walletBalance: { fontSize: 36, fontWeight: '800', color: '#1f6feb', textAlign: 'center', marginVertical: 8 },
+  credit: { color: '#0a7d33', fontWeight: '700' },
+  debit: { color: '#b00020', fontWeight: '700' },
 });

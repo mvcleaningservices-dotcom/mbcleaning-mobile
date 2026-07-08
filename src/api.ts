@@ -53,6 +53,27 @@ export interface Booking {
   advanceAmount: number;
   advancePaid: boolean;
   status: string;
+  remainingDue?: number;
+  finalPayment?: {
+    walletPaid: number;
+    cashPaid: number;
+    onlinePaid: number;
+    settled: boolean;
+  };
+}
+
+export interface WalletTxn {
+  id: string;
+  type: 'topup' | 'debit' | 'refund';
+  amount: number;
+  balanceAfter: number | null;
+  description: string;
+  at: string;
+}
+
+export interface WalletState {
+  balance: number;
+  history: WalletTxn[];
 }
 
 export interface CreateBookingResult {
@@ -63,6 +84,7 @@ export interface CreateBookingResult {
     razorpayOrderId?: string;
     keyId?: string;
     amount?: number;
+    paidVia?: 'wallet';
   };
 }
 
@@ -96,6 +118,7 @@ export const api = {
       scheduledDate: string;
       timeSlot: string;
       address: string;
+      advanceMethod?: 'razorpay' | 'wallet';
     },
   ) =>
     req<CreateBookingResult>(
@@ -113,4 +136,30 @@ export const api = {
     ),
 
   myBookings: (token: string) => req<Booking[]>('/bookings/mine', {}, token),
+
+  // ---- Wallet (Phase 4) ----
+  getWallet: (token: string) => req<WalletState>('/wallet', {}, token),
+
+  topupWallet: (token: string, amount: number) =>
+    req<{ transactionId: string; payment: { required: boolean; provider?: string; amount?: number } }>(
+      '/wallet/topup',
+      { method: 'POST', body: JSON.stringify({ amount }) },
+      token,
+    ),
+
+  // Test-mode top-up confirmation (dev only — live uses Razorpay checkout).
+  confirmTopupTest: (token: string, transactionId: string) =>
+    req<{ balance: number }>(
+      '/wallet/topup/test-confirm',
+      { method: 'POST', body: JSON.stringify({ transactionId }) },
+      token,
+    ),
+
+  // Settle the final balance after service: part/all from wallet, rest cash.
+  payFinal: (token: string, bookingId: string, walletAmount: number) =>
+    req<Booking>(
+      `/bookings/${bookingId}/final-payment`,
+      { method: 'POST', body: JSON.stringify({ walletAmount }) },
+      token,
+    ),
 };
