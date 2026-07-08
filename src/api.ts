@@ -127,6 +127,7 @@ export const api = {
       scheduledDate: string;
       timeSlot: string;
       address: string;
+      pincode?: string;
       advanceMethod?: 'razorpay' | 'wallet';
     },
   ) =>

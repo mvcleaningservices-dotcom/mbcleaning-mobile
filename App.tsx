@@ -215,6 +215,7 @@ export default function App() {
         scheduledDate: date,
         timeSlot,
         address: address.trim(),
+        pincode,
         advanceMethod: payAdvanceFromWallet ? 'wallet' : 'razorpay',
       });
 
