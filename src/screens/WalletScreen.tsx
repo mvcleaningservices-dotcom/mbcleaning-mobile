@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, RefreshControl, Alert, ActivityIndicator, TouchableOpacity,
+  View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { theme } from '../theme';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useToast } from '../components/Toast';
+import { alertDialog } from '../dialog';
 import { api, WalletState, WalletTxn } from '../api';
 import { session } from '../session';
 
@@ -56,7 +57,7 @@ export function WalletScreen() {
 
   const topUp = async () => {
     const value = Math.floor(Number(amount) || 0);
-    if (value < 1) return Alert.alert('Enter an amount', 'Please enter a valid top-up amount.');
+    if (value < 1) return alertDialog('Enter an amount', 'Please enter a valid top-up amount.');
     const token = await session.getToken();
     if (!token) return;
     setBusy(true);

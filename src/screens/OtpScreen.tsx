@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, TextInput, Pressable, Animated } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, TouchableOpacity, TextInput, Pressable, Animated } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { KeyRound } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 import { Button } from '../components/Button';
 import { useToast } from '../components/Toast';
+import { alertDialog } from '../dialog';
 import { api } from '../api';
 import { session } from '../session';
 
@@ -42,7 +43,7 @@ export function OtpScreen() {
   const devOtp = route.params?.devOtp;
 
   const verify = async () => {
-    if (code.length !== 6) return Alert.alert('Invalid OTP', 'Please enter a 6-digit OTP');
+    if (code.length !== 6) return alertDialog('Invalid OTP', 'Please enter a 6-digit OTP');
     setBusy(true);
     try {
       const res = await api.verifyOtp(mobile, code.trim());

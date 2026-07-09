@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { User, Wallet, LogOut, ChevronRight, MapPin, ClipboardList } from 'lucide-react-native';
@@ -9,6 +9,7 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useToast } from '../components/Toast';
+import { confirmDialog, alertDialog } from '../dialog';
 import { api, Profile, WalletState } from '../api';
 import { session } from '../session';
 
@@ -65,7 +66,7 @@ export function ProfileScreen() {
     const token = await session.getToken();
     if (!token) return;
     if (pincode && !/^\d{6}$/.test(pincode)) {
-      return Alert.alert('Invalid pincode', 'Enter a 6-digit pincode');
+      return alertDialog('Invalid pincode', 'Enter a 6-digit pincode');
     }
     setSaving(true);
     try {
@@ -87,17 +88,15 @@ export function ProfileScreen() {
   };
 
   const logout = async () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: async () => {
-          await session.clear();
-          navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
-        },
-      },
-    ]);
+    const ok = await confirmDialog({
+      title: 'Log out',
+      message: 'Are you sure you want to log out?',
+      confirmLabel: 'Log out',
+      destructive: true,
+    });
+    if (!ok) return;
+    await session.clear();
+    navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
   };
 
   const initials = name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');

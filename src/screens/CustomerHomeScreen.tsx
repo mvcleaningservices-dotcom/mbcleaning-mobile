@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapPin, Search, PackageSearch, Plus, Sparkles } from 'lucide-react-native';
@@ -12,6 +12,7 @@ import { SkeletonCard } from '../components/Skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { ServiceImage } from '../components/ServiceImage';
 import { useToast } from '../components/Toast';
+import { alertDialog } from '../dialog';
 import { api, ServiceItem, PopularService } from '../api';
 import { session } from '../session';
 
@@ -107,7 +108,7 @@ export function CustomerHomeScreen() {
 
   const submitPincode = async () => {
     if (!/^\d{6}$/.test(pincode)) {
-      return Alert.alert('Invalid pincode', 'Enter a 6-digit pincode');
+      return alertDialog('Invalid pincode', 'Enter a 6-digit pincode');
     }
     setBusy(true);
     setLoading(true);

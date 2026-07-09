@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Sparkles, Phone } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -9,6 +9,7 @@ import { theme } from '../theme';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useToast } from '../components/Toast';
+import { alertDialog } from '../dialog';
 import { api } from '../api';
 import { session } from '../session';
 
@@ -71,7 +72,7 @@ export function LoginScreen() {
   }, [checkingAuth, fadeAnim, slideAnim]);
 
   const sendOtp = async () => {
-    if (mobile.length !== 10) return Alert.alert('Invalid number', 'Please enter a 10-digit mobile number');
+    if (mobile.length !== 10) return alertDialog('Invalid number', 'Please enter a 10-digit mobile number');
     setBusy(true);
     try {
       const res = await api.requestOtp(mobile.trim());
