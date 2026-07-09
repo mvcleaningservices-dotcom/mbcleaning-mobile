@@ -1,7 +1,9 @@
-import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, TextInput, Pressable } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, TextInput, Pressable, Animated } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { KeyRound } from 'lucide-react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { theme } from '../theme';
 import { Button } from '../components/Button';
@@ -16,6 +18,25 @@ export function OtpScreen() {
   const route = useRoute<any>();
   const toast = useToast();
   const inputRef = useRef<TextInput>(null);
+  const insets = useSafeAreaInsets();
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   const mobile = route.params?.mobile || '';
   const devOtp = route.params?.devOtp;
@@ -48,11 +69,9 @@ export function OtpScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.header}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <View style={[styles.topTealPanel, { paddingTop: insets.top + theme.spacing[10] }]}>
         <View style={styles.iconContainer}>
           <KeyRound color={theme.colors.primary600} size={32} />
         </View>
@@ -60,44 +79,55 @@ export function OtpScreen() {
         <Text style={styles.subtitle}>Enter the 6-digit code sent to {mobile}</Text>
       </View>
 
-      <View style={styles.form}>
-        {devOtp && (
-          <View style={styles.devHint}>
-            <Text style={styles.devHintText}>Dev mode: OTP is {devOtp}</Text>
-          </View>
-        )}
-        <Pressable style={styles.otpRow} onPress={() => inputRef.current?.focus()}>
-          {Array.from({ length: 6 }).map((_, i) => {
-            const filled = i < code.length;
-            const active = i === code.length;
-            return (
-              <View key={i} style={[styles.otpBox, filled && styles.otpBoxFilled, active && styles.otpBoxActive]}>
-                <Text style={styles.otpDigit}>{code[i] ?? ''}</Text>
-              </View>
-            );
-          })}
-          <TextInput
-            ref={inputRef}
-            value={code}
-            onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
-            keyboardType="number-pad"
-            maxLength={6}
-            autoFocus
-            style={styles.hiddenInput}
-            caretHidden
+      <KeyboardAvoidingView 
+        style={styles.keyboardAvoidingView} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <Animated.View style={[
+          styles.card, 
+          { 
+            opacity: fadeAnim, 
+            transform: [{ translateY: slideAnim }] 
+          }
+        ]}>
+          {devOtp && (
+            <View style={styles.devHint}>
+              <Text style={styles.devHintText}>Dev mode: OTP is {devOtp}</Text>
+            </View>
+          )}
+          <Pressable style={styles.otpRow} onPress={() => inputRef.current?.focus()}>
+            {Array.from({ length: 6 }).map((_, i) => {
+              const filled = i < code.length;
+              const active = i === code.length;
+              return (
+                <View key={i} style={[styles.otpBox, filled && styles.otpBoxFilled, active && styles.otpBoxActive]}>
+                  <Text style={styles.otpDigit}>{code[i] ?? ''}</Text>
+                </View>
+              );
+            })}
+            <TextInput
+              ref={inputRef}
+              value={code}
+              onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
+              keyboardType="number-pad"
+              maxLength={6}
+              autoFocus
+              style={[styles.hiddenInput, Platform.OS === 'web' ? { outlineStyle: 'none' } as any : null]}
+              caretHidden
+            />
+          </Pressable>
+          <Button 
+            title="Verify & Login" 
+            onPress={verify} 
+            loading={busy}
+            disabled={code.length < 6}
           />
-        </Pressable>
-        <Button 
-          title="Verify & Login" 
-          onPress={verify} 
-          loading={busy}
-          disabled={code.length < 6}
-        />
-        <TouchableOpacity style={styles.changeNumber} onPress={() => navigation.goBack()}>
-          <Text style={styles.changeNumberText}>Change mobile number</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+          <TouchableOpacity style={styles.changeNumber} onPress={() => navigation.goBack()}>
+            <Text style={styles.changeNumberText}>Change mobile number</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -106,17 +136,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  header: {
-    paddingTop: theme.spacing[16],
+  topTealPanel: {
+    backgroundColor: theme.colors.primary600,
+    paddingBottom: 100,
     paddingHorizontal: theme.spacing[6],
     alignItems: 'center',
-    marginBottom: theme.spacing[8],
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+    marginTop: -60, // Create overlap with the teal panel
+  },
+  card: {
+    backgroundColor: theme.colors.surface,
+    marginHorizontal: theme.spacing[6],
+    padding: theme.spacing[6],
+    borderRadius: theme.radius.xl,
+    ...theme.shadows.lg,
   },
   iconContainer: {
     width: 64,
     height: 64,
     borderRadius: theme.radius['2xl'],
-    backgroundColor: theme.colors.primary50,
+    backgroundColor: theme.colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: theme.spacing[6],
@@ -124,28 +165,26 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: theme.typography.fontFamily.bold,
     fontSize: theme.typography.sizes['2xl'],
-    color: theme.colors.textPrimary,
+    color: theme.colors.textInverse,
     marginBottom: theme.spacing[2],
     textAlign: 'center',
   },
   subtitle: {
     fontFamily: theme.typography.fontFamily.regular,
     fontSize: theme.typography.sizes.md,
-    color: theme.colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
-  },
-  form: {
-    paddingHorizontal: theme.spacing[6],
   },
   otpRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: theme.spacing[6],
     position: 'relative',
+    gap: theme.spacing[1], // Prevent boxes from touching when flexible
   },
   otpBox: {
-    width: 48,
-    height: 56,
+    flex: 1, // Fix overflow: flexibly fill width instead of fixed 48px
+    height: 50, // Slightly reduced height to match flexible width
     borderRadius: theme.radius.md,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
@@ -157,7 +196,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.primary600,
   },
   otpBoxActive: {
-    borderColor: theme.colors.primary600,
+    borderColor: theme.colors.borderFocus, // Matched with Input focus state
     backgroundColor: theme.colors.primary50,
   },
   otpDigit: {

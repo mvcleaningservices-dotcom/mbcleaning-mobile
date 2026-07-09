@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, TextInput, Text, StyleSheet, TextInputProps } from 'react-native';
+import React, { useState } from 'react';
+import { View, TextInput, Text, StyleSheet, TextInputProps, Platform } from 'react-native';
 import { theme } from '../theme';
 
 interface InputProps extends TextInputProps {
@@ -8,20 +8,41 @@ interface InputProps extends TextInputProps {
   leftIcon?: React.ReactNode;
 }
 
-export function Input({ label, error, leftIcon, style, multiline, ...props }: InputProps) {
+export function Input({ label, error, leftIcon, style, multiline, onFocus, onBlur, ...props }: InputProps) {
+  const [isFocused, setIsFocused] = useState(false);
+
+  const handleFocus = (e: any) => {
+    setIsFocused(true);
+    if (onFocus) onFocus(e);
+  };
+
+  const handleBlur = (e: any) => {
+    setIsFocused(false);
+    if (onBlur) onBlur(e);
+  };
+
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
       <View style={[
         styles.inputWrapper,
         multiline ? styles.inputWrapperMultiline : null,
+        isFocused && !error ? styles.inputFocused : null,
         error ? styles.inputError : null,
       ]}>
         {leftIcon && <View style={[styles.iconContainer, multiline ? styles.iconContainerMultiline : null]}>{leftIcon}</View>}
         <TextInput
-          style={[styles.input, leftIcon ? styles.inputWithIcon : null, multiline ? styles.inputMultiline : null, style]}
+          style={[
+            styles.input, 
+            leftIcon ? styles.inputWithIcon : null, 
+            multiline ? styles.inputMultiline : null, 
+            style,
+            Platform.OS === 'web' ? { outlineStyle: 'none' } as any : null
+          ]}
           placeholderTextColor={theme.colors.textMuted}
           multiline={multiline}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           {...props}
         />
       </View>
@@ -53,6 +74,9 @@ const styles = StyleSheet.create({
     height: undefined,
     minHeight: 88,
     alignItems: 'flex-start',
+  },
+  inputFocused: {
+    borderColor: theme.colors.borderFocus,
   },
   inputError: {
     borderColor: theme.colors.error,

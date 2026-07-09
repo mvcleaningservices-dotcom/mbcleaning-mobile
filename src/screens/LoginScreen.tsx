@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Sparkles, Phone } from 'lucide-react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { theme } from '../theme';
 import { Button } from '../components/Button';
@@ -16,6 +18,10 @@ export function LoginScreen() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const navigation = useNavigation<any>();
   const toast = useToast();
+  const insets = useSafeAreaInsets();
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
   // Auto-login logic
   useEffect(() => {
@@ -47,6 +53,23 @@ export function LoginScreen() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (!checkingAuth) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [checkingAuth, fadeAnim, slideAnim]);
+
   const sendOtp = async () => {
     if (mobile.length !== 10) return Alert.alert('Invalid number', 'Please enter a 10-digit mobile number');
     setBusy(true);
@@ -62,18 +85,17 @@ export function LoginScreen() {
 
   if (checkingAuth) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Sparkles color={theme.colors.primary600} size={48} />
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.primary600 }]}>
+        <StatusBar style="light" />
+        <Sparkles color={theme.colors.surface} size={48} />
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.header}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <View style={[styles.topTealPanel, { paddingTop: insets.top + theme.spacing[10] }]}>
         <View style={styles.iconContainer}>
           <Sparkles color={theme.colors.primary600} size={32} />
         </View>
@@ -81,24 +103,35 @@ export function LoginScreen() {
         <Text style={styles.subtitle}>Enter your mobile number to log in or create an account.</Text>
       </View>
 
-      <View style={styles.form}>
-        <Input
-          label="Mobile Number"
-          placeholder="10-digit mobile"
-          keyboardType="phone-pad"
-          maxLength={10}
-          value={mobile}
-          onChangeText={setMobile}
-          leftIcon={<Phone size={20} color={theme.colors.textMuted} />}
-        />
-        <Button 
-          title="Continue" 
-          onPress={sendOtp} 
-          loading={busy}
-          disabled={mobile.length < 10}
-        />
-      </View>
-    </KeyboardAvoidingView>
+      <KeyboardAvoidingView 
+        style={styles.keyboardAvoidingView} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <Animated.View style={[
+          styles.card, 
+          { 
+            opacity: fadeAnim, 
+            transform: [{ translateY: slideAnim }] 
+          }
+        ]}>
+          <Input
+            label="Mobile Number"
+            placeholder="10-digit mobile"
+            keyboardType="phone-pad"
+            maxLength={10}
+            value={mobile}
+            onChangeText={setMobile}
+            leftIcon={<Phone size={20} color={theme.colors.textMuted} />}
+          />
+          <Button 
+            title="Continue" 
+            onPress={sendOtp} 
+            loading={busy}
+            disabled={mobile.length < 10}
+          />
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -107,17 +140,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  header: {
-    paddingTop: theme.spacing[16],
+  topTealPanel: {
+    backgroundColor: theme.colors.primary600,
+    paddingBottom: 100,
     paddingHorizontal: theme.spacing[6],
     alignItems: 'center',
-    marginBottom: theme.spacing[8],
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+    marginTop: -60, // Create overlap with the teal panel
+  },
+  card: {
+    backgroundColor: theme.colors.surface,
+    marginHorizontal: theme.spacing[6],
+    padding: theme.spacing[6],
+    borderRadius: theme.radius.xl,
+    ...theme.shadows.lg,
   },
   iconContainer: {
     width: 64,
     height: 64,
     borderRadius: theme.radius['2xl'],
-    backgroundColor: theme.colors.primary50,
+    backgroundColor: theme.colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: theme.spacing[6],
@@ -125,17 +169,14 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: theme.typography.fontFamily.bold,
     fontSize: theme.typography.sizes['2xl'],
-    color: theme.colors.textPrimary,
+    color: theme.colors.textInverse,
     marginBottom: theme.spacing[2],
     textAlign: 'center',
   },
   subtitle: {
     fontFamily: theme.typography.fontFamily.regular,
     fontSize: theme.typography.sizes.md,
-    color: theme.colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.8)', // white with 80% opacity for slight muting
     textAlign: 'center',
-  },
-  form: {
-    paddingHorizontal: theme.spacing[6],
   },
 });
