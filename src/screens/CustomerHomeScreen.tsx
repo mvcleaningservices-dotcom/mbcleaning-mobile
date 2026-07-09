@@ -255,7 +255,7 @@ export function CustomerHomeScreen() {
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.popScroll} contentContainerStyle={styles.popContent}>
                       {popular.map((s) => (
                         <TouchableOpacity key={s.id} style={styles.popCard} activeOpacity={0.85} onPress={() => navigation.navigate('Services')}>
-                          <ServiceImage uri={s.imageUrl} style={styles.popImage} />
+                          <ServiceImage uri={s.imageUrl} name={s.name} style={styles.popImage} />
                           <View style={styles.popBody}>
                             <Text style={styles.cardName} numberOfLines={1}>{s.name}</Text>
                             <View style={styles.cardFooter}>
@@ -275,7 +275,7 @@ export function CustomerHomeScreen() {
             <View style={styles.grid2}>
               {gridServices.map((s) => (
                 <TouchableOpacity key={s.id} style={styles.gridCard} activeOpacity={0.85} onPress={() => navigation.navigate('Services')}>
-                  <ServiceImage uri={s.imageUrl} style={styles.gridImage} />
+                  <ServiceImage uri={s.imageUrl} name={s.name} style={styles.gridImage} />
                   <View style={styles.gridBody}>
                     <Text style={styles.cardName} numberOfLines={1}>{s.name}</Text>
                     <Text style={styles.cardDesc} numberOfLines={2}>{s.description}</Text>

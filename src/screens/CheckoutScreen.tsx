@@ -132,7 +132,7 @@ export function CheckoutScreen() {
           <Text style={styles.sectionTitle}>Your order</Text>
           {selectedServices.map((s) => (
             <View key={s.id} style={styles.summaryItem}>
-              <ServiceImage uri={s.imageUrl} iconSize={16} style={styles.summaryThumb} />
+              <ServiceImage uri={s.imageUrl} name={s.name} iconSize={16} style={styles.summaryThumb} />
               <Text style={styles.summaryName} numberOfLines={1}>{s.name}</Text>
               <Text style={styles.summaryPrice}>₹{s.price}</Text>
             </View>

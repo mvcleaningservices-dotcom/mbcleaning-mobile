@@ -143,7 +143,7 @@ export function ServicesScreen() {
                 onPress={() => toggleSelect(s)}
                 style={[styles.row, isSel && styles.rowSel]}
               >
-                <ServiceImage uri={s.imageUrl} iconSize={22} style={styles.thumb} />
+                <ServiceImage uri={s.imageUrl} name={s.name} iconSize={22} style={styles.thumb} />
                 <View style={styles.rowBody}>
                   <View style={styles.rowTop}>
                     <Text style={styles.name} numberOfLines={1}>{s.name}</Text>
