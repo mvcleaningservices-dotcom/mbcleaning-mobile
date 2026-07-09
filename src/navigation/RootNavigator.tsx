@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, ClipboardList, Wallet, User } from 'lucide-react-native';
 
 import { theme } from '../theme';
@@ -42,6 +43,7 @@ function AuthNavigator() {
 }
 
 function CustomerTabs() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -51,13 +53,18 @@ function CustomerTabs() {
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.border,
-          height: 60,
-          paddingBottom: 8,
+          // Grow the bar by the device's bottom inset (home indicator) so labels
+          // never sit under it; keep a comfortable base height otherwise.
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontFamily: theme.typography.fontFamily.medium,
           fontSize: 12,
+        },
+        tabBarItemStyle: {
+          paddingTop: 2,
         },
       }}
     >

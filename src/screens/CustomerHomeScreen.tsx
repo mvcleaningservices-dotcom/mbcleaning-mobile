@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, TouchableOpacity, Animated, Image } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapPin, Search, PackageSearch, Plus, Sparkles } from 'lucide-react-native';
@@ -10,22 +10,10 @@ import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { SkeletonCard } from '../components/Skeleton';
 import { EmptyState } from '../components/EmptyState';
+import { ServiceImage } from '../components/ServiceImage';
 import { useToast } from '../components/Toast';
 import { api, ServiceItem, PopularService } from '../api';
 import { session } from '../session';
-
-/** Service image with a graceful branded fallback for empty/broken URLs. */
-function ServiceThumb({ uri, style }: { uri?: string; style: object }) {
-  const [broken, setBroken] = useState(false);
-  if (!uri || broken) {
-    return (
-      <View style={[style, styles.thumbFallback]}>
-        <Sparkles size={22} color={theme.colors.primary300} />
-      </View>
-    );
-  }
-  return <Image source={{ uri }} style={style as any} onError={() => setBroken(true)} resizeMode="cover" />;
-}
 
 function greetingPrefix() {
   const h = new Date().getHours();
@@ -267,7 +255,7 @@ export function CustomerHomeScreen() {
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.popScroll} contentContainerStyle={styles.popContent}>
                       {popular.map((s) => (
                         <TouchableOpacity key={s.id} style={styles.popCard} activeOpacity={0.85} onPress={() => navigation.navigate('Services')}>
-                          <ServiceThumb uri={s.imageUrl} style={styles.popImage} />
+                          <ServiceImage uri={s.imageUrl} style={styles.popImage} />
                           <View style={styles.popBody}>
                             <Text style={styles.cardName} numberOfLines={1}>{s.name}</Text>
                             <View style={styles.cardFooter}>
@@ -287,7 +275,7 @@ export function CustomerHomeScreen() {
             <View style={styles.grid2}>
               {gridServices.map((s) => (
                 <TouchableOpacity key={s.id} style={styles.gridCard} activeOpacity={0.85} onPress={() => navigation.navigate('Services')}>
-                  <ServiceThumb uri={s.imageUrl} style={styles.gridImage} />
+                  <ServiceImage uri={s.imageUrl} style={styles.gridImage} />
                   <View style={styles.gridBody}>
                     <Text style={styles.cardName} numberOfLines={1}>{s.name}</Text>
                     <Text style={styles.cardDesc} numberOfLines={2}>{s.description}</Text>
@@ -399,6 +387,4 @@ const styles = StyleSheet.create({
   cardPrice: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.md, color: theme.colors.primary600 },
   bookedText: { fontFamily: theme.typography.fontFamily.medium, fontSize: theme.typography.sizes.xs, color: theme.colors.textMuted },
   addBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: theme.colors.primary600, justifyContent: 'center', alignItems: 'center' },
-
-  thumbFallback: { backgroundColor: theme.colors.primary50, justifyContent: 'center', alignItems: 'center' },
 });
