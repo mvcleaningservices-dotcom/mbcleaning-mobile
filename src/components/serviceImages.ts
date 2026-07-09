@@ -9,14 +9,14 @@ import { ImageSourcePropType } from 'react-native';
  * unmatched falls back to `service-generic.png`.
  */
 const IMAGE_MAP: { keywords: string[]; src: ImageSourcePropType }[] = [
-  { keywords: ['kitchen'], src: require('../../assets/services/kitchen-cleaning.png') },
-  { keywords: ['bathroom', 'washroom', 'toilet'], src: require('../../assets/services/bathroom-cleaning.png') },
-  { keywords: ['sofa', 'couch', 'upholstery'], src: require('../../assets/services/sofa-cleaning.png') },
-  { keywords: ['deep', 'full home', 'home clean'], src: require('../../assets/services/deep-cleaning.png') },
-  { keywords: ['plumb', 'tap', 'pipe', 'leak'], src: require('../../assets/services/plumbing.png') },
+  { keywords: ['kitchen'], src: require('../../assets/services/kitchen-cleaning.jpg') },
+  { keywords: ['bathroom', 'washroom', 'toilet'], src: require('../../assets/services/bathroom-cleaning.jpg') },
+  { keywords: ['sofa', 'couch', 'upholstery'], src: require('../../assets/services/sofa-cleaning.jpg') },
+  { keywords: ['deep', 'full home', 'home clean'], src: require('../../assets/services/deep-cleaning.jpg') },
+  { keywords: ['plumb', 'tap', 'pipe', 'leak'], src: require('../../assets/services/plumbing.jpg') },
 ];
 
-const GENERIC: ImageSourcePropType = require('../../assets/services/service-generic.png');
+const GENERIC: ImageSourcePropType = require('../../assets/services/service-generic.jpg');
 
 /** Pick the bundled image best matching a service name (generic fallback). */
 export function localServiceImage(name?: string): ImageSourcePropType {
