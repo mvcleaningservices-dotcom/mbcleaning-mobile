@@ -40,20 +40,19 @@ export function CustomerHomeScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
+  // Run the entrance animation whenever the pincode-entry card is shown — on
+  // first mount and again when "Change" flips hasPincode back to false. Without
+  // resetting + re-running here, the card re-appears stuck at its start opacity
+  // (0) and looks washed out.
   useEffect(() => {
+    if (hasPincode) return;
+    fadeAnim.setValue(0);
+    slideAnim.setValue(20);
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
     ]).start();
-  }, [fadeAnim, slideAnim]);
+  }, [hasPincode, fadeAnim, slideAnim]);
 
   useEffect(() => {
     loadInitialData();
