@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Calendar, Clock, MapPin, CreditCard, Wallet } from 'lucide-react-native';
+import { ChevronLeft, Calendar, Clock, MapPin, CreditCard, Wallet, ShieldCheck, Smartphone, Check } from 'lucide-react-native';
 
 import { theme } from '../theme';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Card } from '../components/Card';
+import { ServiceImage } from '../components/ServiceImage';
 import { useToast } from '../components/Toast';
 import { api, ServiceItem } from '../api';
 import { session } from '../session';
@@ -41,7 +42,7 @@ export function CheckoutScreen() {
   const [timeSlot, setTimeSlot] = useState('');
   const [address, setAddress] = useState('');
   const [payAdvanceFromWallet, setPayAdvanceFromWallet] = useState(false);
-  
+
   const [walletBalance, setWalletBalance] = useState(0);
   const [busy, setBusy] = useState(false);
 
@@ -52,7 +53,7 @@ export function CheckoutScreen() {
         try {
           const w = await api.getWallet(t);
           setWalletBalance(w.balance);
-          
+
           const p = await api.getProfile(t);
           if (p.address) setAddress(p.address);
         } catch (e) {
@@ -65,7 +66,7 @@ export function CheckoutScreen() {
   const placeBooking = async () => {
     const token = await session.getToken();
     if (!token) return;
-    
+
     setBusy(true);
     try {
       const pin = await session.getPincode() || '';
@@ -105,12 +106,19 @@ export function CheckoutScreen() {
   };
 
   const days = nextSevenDays();
-  const isFormValid = date.length > 5 && timeSlot && address.trim().length > 5;
+  const isFormValid = date.length > 5 && !!timeSlot && address.trim().length > 5;
+  const ctaLabel = !date
+    ? 'Select a date'
+    : !timeSlot
+    ? 'Select a time slot'
+    : address.trim().length <= 5
+    ? 'Add your address'
+    : 'Pay advance & confirm';
 
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + theme.spacing[3] }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} accessibilityLabel="Go back">
           <ChevronLeft size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Checkout</Text>
@@ -118,42 +126,36 @@ export function CheckoutScreen() {
       </View>
 
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
-        
-        {/* Summary Card */}
+
+        {/* Summary */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Summary</Text>
-          {selectedServices.map(s => (
+          <Text style={styles.sectionTitle}>Your order</Text>
+          {selectedServices.map((s) => (
             <View key={s.id} style={styles.summaryItem}>
-              <Text style={styles.summaryName}>{s.name}</Text>
+              <ServiceImage uri={s.imageUrl} iconSize={16} style={styles.summaryThumb} />
+              <Text style={styles.summaryName} numberOfLines={1}>{s.name}</Text>
               <Text style={styles.summaryPrice}>₹{s.price}</Text>
             </View>
           ))}
           <View style={styles.divider} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.totalLabel}>Total Amount</Text>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalAmount}>₹{total}</Text>
           </View>
         </Card>
 
-        {/* Schedule Card */}
+        {/* Schedule */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Schedule</Text>
-
           <View style={styles.labelRow}>
-            <Calendar size={16} color={theme.colors.textSecondary} />
-            <Text style={styles.label}>Select Date</Text>
+            <Calendar size={16} color={theme.colors.primary600} />
+            <Text style={styles.sectionTitle}>Pick a date</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.slotsScroll}>
             <View style={{ flexDirection: 'row', gap: 8, paddingRight: 16 }}>
               {days.map((d) => {
                 const sel = date === d.iso;
                 return (
-                  <TouchableOpacity
-                    key={d.iso}
-                    activeOpacity={0.7}
-                    onPress={() => setDate(d.iso)}
-                    style={[styles.dateChip, sel && styles.dateChipSel]}
-                  >
+                  <TouchableOpacity key={d.iso} activeOpacity={0.7} onPress={() => setDate(d.iso)} style={[styles.dateChip, sel && styles.dateChipSel]}>
                     <Text style={[styles.dateChipDay, sel && styles.dateChipTextSel]}>{d.weekday}</Text>
                     <Text style={[styles.dateChipNum, sel && styles.dateChipTextSel]}>{d.dayNum}</Text>
                   </TouchableOpacity>
@@ -162,17 +164,14 @@ export function CheckoutScreen() {
             </View>
           </ScrollView>
 
-          <Text style={[styles.label, { marginTop: theme.spacing[4] }]}>Time Slot</Text>
+          <View style={[styles.labelRow, { marginTop: theme.spacing[5] }]}>
+            <Clock size={16} color={theme.colors.primary600} />
+            <Text style={styles.sectionTitle}>Pick a time slot</Text>
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.slotsScroll}>
             <View style={{ flexDirection: 'row', gap: 8, paddingRight: 16 }}>
-              {TIME_SLOTS.map(slot => (
-                <TouchableOpacity
-                  key={slot}
-                  activeOpacity={0.7}
-                  onPress={() => setTimeSlot(slot)}
-                  style={[styles.slot, timeSlot === slot && styles.slotSel]}
-                >
-                  <Clock size={14} color={timeSlot === slot ? theme.colors.primary600 : theme.colors.textSecondary} style={{ marginRight: 6 }} />
+              {TIME_SLOTS.map((slot) => (
+                <TouchableOpacity key={slot} activeOpacity={0.7} onPress={() => setTimeSlot(slot)} style={[styles.slot, timeSlot === slot && styles.slotSel]}>
                   <Text style={[styles.slotText, timeSlot === slot && styles.slotTextSel]}>{slot}</Text>
                 </TouchableOpacity>
               ))}
@@ -180,11 +179,14 @@ export function CheckoutScreen() {
           </ScrollView>
         </Card>
 
-        {/* Address Card */}
+        {/* Address */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Address</Text>
+          <View style={styles.labelRow}>
+            <MapPin size={16} color={theme.colors.primary600} />
+            <Text style={styles.sectionTitle}>Service address</Text>
+          </View>
           <Input
-            placeholder="Flat, street, landmark"
+            placeholder="Flat / house no, street, landmark"
             value={address}
             onChangeText={setAddress}
             multiline
@@ -192,38 +194,51 @@ export function CheckoutScreen() {
           />
         </Card>
 
-        {/* Payment Card */}
+        {/* Payment */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Payment</Text>
-          <Text style={styles.mutedText}>Pay a small advance to confirm. Balance is paid after service completion.</Text>
-          
-          <TouchableOpacity 
-            style={[styles.walletRow, payAdvanceFromWallet && styles.walletRowSel]} 
-            onPress={() => setPayAdvanceFromWallet(v => !v)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Wallet size={20} color={payAdvanceFromWallet ? theme.colors.primary600 : theme.colors.textSecondary} style={{ marginRight: 12 }} />
-              <View>
-                <Text style={styles.walletTitle}>Pay advance from wallet</Text>
-                <Text style={styles.walletSub}>Balance: ₹{walletBalance}</Text>
-              </View>
+          <View style={styles.labelRow}>
+            <CreditCard size={16} color={theme.colors.primary600} />
+            <Text style={styles.sectionTitle}>Pay advance</Text>
+          </View>
+
+          <TouchableOpacity style={[styles.payRow, payAdvanceFromWallet && styles.payRowSel]} onPress={() => setPayAdvanceFromWallet(true)} activeOpacity={0.8}>
+            <Wallet size={20} color={payAdvanceFromWallet ? theme.colors.primary600 : theme.colors.textSecondary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.payTitle}>Pay from wallet</Text>
+              <Text style={styles.paySub}>Balance ₹{walletBalance}</Text>
             </View>
-            <View style={[styles.checkbox, payAdvanceFromWallet && styles.checkboxSel]}>
-              {payAdvanceFromWallet && <View style={styles.checkboxInner} />}
-            </View>
+            <View style={[styles.radio, payAdvanceFromWallet && styles.radioSel]}>{payAdvanceFromWallet && <Check size={13} color={theme.colors.textInverse} />}</View>
           </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.payRow, !payAdvanceFromWallet && styles.payRowSel]} onPress={() => setPayAdvanceFromWallet(false)} activeOpacity={0.8}>
+            <Smartphone size={20} color={!payAdvanceFromWallet ? theme.colors.primary600 : theme.colors.textSecondary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.payTitle}>Pay online</Text>
+              <Text style={styles.paySub}>UPI, card or netbanking</Text>
+            </View>
+            <View style={[styles.radio, !payAdvanceFromWallet && styles.radioSel]}>{!payAdvanceFromWallet && <Check size={13} color={theme.colors.textInverse} />}</View>
+          </TouchableOpacity>
+
+          <View style={styles.trustRow}>
+            <ShieldCheck size={16} color={theme.colors.success} />
+            <Text style={styles.trustText}>You only pay the balance after the service is completed.</Text>
+          </View>
         </Card>
 
       </ScrollView>
 
-      <View style={styles.bottomBar}>
-        <Button 
-          title="Pay Advance & Confirm" 
-          icon={<CreditCard size={18} color="#fff" />}
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, theme.spacing[4]) }]}>
+        <View style={styles.barTotal}>
+          <Text style={styles.barTotalLabel}>Total</Text>
+          <Text style={styles.barTotalValue}>₹{total}</Text>
+        </View>
+        <Button
+          title={ctaLabel}
+          icon={isFormValid ? <CreditCard size={18} color={theme.colors.textInverse} /> : undefined}
           onPress={placeBooking}
           disabled={!isFormValid || busy}
           loading={busy}
+          style={{ flex: 1, marginLeft: theme.spacing[4] }}
         />
       </View>
     </View>
@@ -232,59 +247,60 @@ export function CheckoutScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.surfaceSubtle },
-  header: { 
+  header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 0, paddingHorizontal: theme.spacing[4], paddingBottom: theme.spacing[4], 
+    paddingHorizontal: theme.spacing[4], paddingBottom: theme.spacing[4],
     backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.border,
   },
   backButton: { padding: 8, marginLeft: -8 },
-  headerTitle: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: 18, color: theme.colors.textPrimary },
-  
+  headerTitle: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.lg, color: theme.colors.textPrimary },
+
   scrollArea: { flex: 1 },
-  scrollContent: { padding: theme.spacing[4], paddingBottom: 100, gap: theme.spacing[4] },
-  
+  scrollContent: { padding: theme.spacing[4], paddingBottom: 120, gap: theme.spacing[4] },
+
   card: { padding: theme.spacing[5] },
-  sectionTitle: { fontFamily: theme.typography.fontFamily.bold, fontSize: 16, color: theme.colors.textPrimary, marginBottom: theme.spacing[4] },
-  
-  summaryItem: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: theme.spacing[2] },
-  summaryName: { fontFamily: theme.typography.fontFamily.regular, color: theme.colors.textSecondary, flex: 1 },
-  summaryPrice: { fontFamily: theme.typography.fontFamily.medium, color: theme.colors.textPrimary },
-  divider: { height: 1, backgroundColor: theme.colors.border, marginVertical: theme.spacing[3] },
-  totalLabel: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: 16, color: theme.colors.textPrimary },
-  totalAmount: { fontFamily: theme.typography.fontFamily.bold, fontSize: 18, color: theme.colors.primary600 },
-  
-  label: { fontFamily: theme.typography.fontFamily.medium, fontSize: theme.typography.sizes.sm, color: theme.colors.textPrimary, marginBottom: theme.spacing[2] },
-  labelRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2], marginBottom: theme.spacing[2] },
-  slotsScroll: { marginHorizontal: -theme.spacing[5], paddingHorizontal: theme.spacing[5], paddingBottom: 8 },
+  sectionTitle: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.md, color: theme.colors.textPrimary },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2], marginBottom: theme.spacing[4] },
+
+  summaryItem: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[3], marginBottom: theme.spacing[3] },
+  summaryThumb: { width: 40, height: 40, borderRadius: theme.radius.md },
+  summaryName: { fontFamily: theme.typography.fontFamily.medium, fontSize: theme.typography.sizes.sm, color: theme.colors.textPrimary, flex: 1 },
+  summaryPrice: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.sm, color: theme.colors.textPrimary },
+  divider: { height: 1, backgroundColor: theme.colors.border, marginTop: theme.spacing[2], marginBottom: theme.spacing[3] },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  totalLabel: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.md, color: theme.colors.textPrimary },
+  totalAmount: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.lg, color: theme.colors.primary600 },
+
+  slotsScroll: { marginHorizontal: -theme.spacing[5], paddingHorizontal: theme.spacing[5], paddingBottom: 4 },
   dateChip: { alignItems: 'center', justifyContent: 'center', minWidth: 56, paddingVertical: 10, paddingHorizontal: 10, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
   dateChipSel: { borderColor: theme.colors.primary600, backgroundColor: theme.colors.primary50 },
   dateChipDay: { fontFamily: theme.typography.fontFamily.medium, fontSize: 12, color: theme.colors.textSecondary, marginBottom: 2 },
   dateChipNum: { fontFamily: theme.typography.fontFamily.bold, fontSize: 16, color: theme.colors.textPrimary },
   dateChipTextSel: { color: theme.colors.primary700 },
-  slot: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
-  slotSel: { borderColor: theme.colors.primary600, backgroundColor: theme.colors.primary50 },
+  slot: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
   slotText: { fontFamily: theme.typography.fontFamily.medium, fontSize: 13, color: theme.colors.textSecondary },
   slotTextSel: { color: theme.colors.primary700 },
-  
-  mutedText: { fontFamily: theme.typography.fontFamily.regular, fontSize: 13, color: theme.colors.textSecondary, lineHeight: 20, marginBottom: theme.spacing[4] },
-  
-  walletRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: theme.spacing[3], borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border },
-  walletRowSel: { borderColor: theme.colors.primary600, backgroundColor: theme.colors.primary50 },
-  walletTitle: { fontFamily: theme.typography.fontFamily.medium, color: theme.colors.textPrimary, fontSize: 14 },
-  walletSub: { fontFamily: theme.typography.fontFamily.regular, color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 },
-  
-  checkbox: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: theme.colors.border, justifyContent: 'center', alignItems: 'center' },
-  checkboxSel: { borderColor: theme.colors.primary600 },
-  checkboxInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: theme.colors.primary600 },
 
-  bottomBar: { 
-    position: 'absolute', bottom: 0, left: 0, right: 0, 
-    backgroundColor: theme.colors.surface, 
-    paddingHorizontal: theme.spacing[5], 
-    paddingVertical: theme.spacing[4],
-    paddingBottom: Platform.OS === 'ios' ? 34 : theme.spacing[4],
-    borderTopWidth: 1, 
-    borderTopColor: theme.colors.border,
+  payRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[3], padding: theme.spacing[3], borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border, marginBottom: theme.spacing[2] },
+  payRowSel: { borderColor: theme.colors.primary600, backgroundColor: theme.colors.primary50 },
+  payTitle: { fontFamily: theme.typography.fontFamily.semiBold, color: theme.colors.textPrimary, fontSize: theme.typography.sizes.sm },
+  paySub: { fontFamily: theme.typography.fontFamily.regular, color: theme.colors.textSecondary, fontSize: theme.typography.sizes.xs, marginTop: 1 },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: theme.colors.border, justifyContent: 'center', alignItems: 'center' },
+  radioSel: { borderColor: theme.colors.primary600, backgroundColor: theme.colors.primary600 },
+
+  trustRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2], marginTop: theme.spacing[2], backgroundColor: theme.colors.successBg, padding: theme.spacing[3], borderRadius: theme.radius.md },
+  trustText: { flex: 1, fontFamily: theme.typography.fontFamily.medium, fontSize: theme.typography.sizes.xs, color: theme.colors.success, lineHeight: 16 },
+
+  bottomBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing[5],
+    paddingTop: theme.spacing[4],
+    borderTopWidth: 1, borderTopColor: theme.colors.border,
     ...theme.shadows.lg,
   },
+  barTotal: { minWidth: 64 },
+  barTotalLabel: { fontFamily: theme.typography.fontFamily.regular, fontSize: theme.typography.sizes.xs, color: theme.colors.textSecondary },
+  barTotalValue: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.lg, color: theme.colors.textPrimary },
 });
