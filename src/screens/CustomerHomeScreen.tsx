@@ -1,24 +1,44 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, TouchableOpacity, Animated, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Search, PackageSearch } from 'lucide-react-native';
+import { MapPin, Search, PackageSearch, Plus, Sparkles } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { theme } from '../theme';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { Card } from '../components/Card';
 import { SkeletonCard } from '../components/Skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { useToast } from '../components/Toast';
-import { api, ServiceItem } from '../api';
+import { api, ServiceItem, PopularService } from '../api';
 import { session } from '../session';
+
+/** Service image with a graceful branded fallback for empty/broken URLs. */
+function ServiceThumb({ uri, style }: { uri?: string; style: object }) {
+  const [broken, setBroken] = useState(false);
+  if (!uri || broken) {
+    return (
+      <View style={[style, styles.thumbFallback]}>
+        <Sparkles size={22} color={theme.colors.primary300} />
+      </View>
+    );
+  }
+  return <Image source={{ uri }} style={style as any} onError={() => setBroken(true)} resizeMode="cover" />;
+}
+
+function greetingPrefix() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+}
 
 export function CustomerHomeScreen() {
   const [pincode, setPincode] = useState('');
   const [hasPincode, setHasPincode] = useState(false);
   const [services, setServices] = useState<ServiceItem[]>([]);
+  const [popular, setPopular] = useState<PopularService[]>([]);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState('All');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState('');
@@ -55,21 +75,24 @@ export function CustomerHomeScreen() {
   const loadInitialData = async () => {
     setLoading(true);
     try {
+      const token = await session.getToken();
       let savedPin = await session.getPincode();
-      if (!savedPin) {
-        const token = await session.getToken();
-        if (token) {
+      if (token) {
+        try {
           const profile = await api.getProfile(token);
-          if (profile.pincode) {
+          setUserName(profile.name);
+          if (!savedPin && profile.pincode) {
             savedPin = profile.pincode;
             await session.savePincode(savedPin);
           }
+        } catch {
+          // profile is best-effort — greeting just falls back to generic
         }
       }
       if (savedPin) {
         setPincode(savedPin);
         setHasPincode(true);
-        await fetchServices(savedPin, '');
+        await Promise.all([fetchServices(savedPin, ''), fetchPopular(savedPin)]);
       }
     } catch (e) {
       // non-critical — keep last known state
@@ -87,6 +110,14 @@ export function CustomerHomeScreen() {
     }
   };
 
+  const fetchPopular = async (pin: string) => {
+    try {
+      setPopular(await api.listPopular(pin));
+    } catch (e: any) {
+      // non-critical — Popular section just stays hidden
+    }
+  };
+
   const submitPincode = async () => {
     if (!/^\d{6}$/.test(pincode)) {
       return Alert.alert('Invalid pincode', 'Enter a 6-digit pincode');
@@ -98,7 +129,7 @@ export function CustomerHomeScreen() {
       const token = await session.getToken();
       if (token) await api.updateProfile(token, { pincode }).catch(() => {});
       setHasPincode(true);
-      await fetchServices(pincode, '');
+      await Promise.all([fetchServices(pincode, ''), fetchPopular(pincode)]);
     } catch (e: any) {
       toast.error(e.message || 'Something went wrong');
     } finally {
@@ -164,18 +195,26 @@ export function CustomerHomeScreen() {
   }
 
   // ── Service listing ────────────────────────────────────────────
+  const isSearching = search.trim() !== '';
+  const categories = ['All', ...Array.from(new Set(services.map((s) => s.category).filter(Boolean) as string[]))];
+  const gridServices = (!isSearching && activeCategory !== 'All')
+    ? services.filter((s) => s.category === activeCategory)
+    : services;
+  const firstName = userName ? userName.split(' ')[0] : '';
+  const greeting = firstName ? `${greetingPrefix()}, ${firstName}! 👋` : `${greetingPrefix()}! 👋`;
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
       <View style={[styles.topHeader, { paddingTop: insets.top + theme.spacing[3] }]}>
-        <Text style={styles.greeting}>Welcome back!</Text>
         <View style={styles.locationRow}>
-          <MapPin size={14} color={theme.colors.primary600} />
-          <Text style={styles.locationText}>{pincode}</Text>
+          <MapPin size={13} color={theme.colors.primary600} />
+          <Text style={styles.locationText}>Serving {pincode}</Text>
           <TouchableOpacity onPress={changePincode} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={styles.changeText}>Change</Text>
           </TouchableOpacity>
         </View>
+        <Text style={styles.greeting}>{greeting}</Text>
       </View>
 
       <View style={styles.searchContainer}>
@@ -188,35 +227,79 @@ export function CustomerHomeScreen() {
       </View>
 
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <Text style={styles.sectionTitle}>Available Services</Text>
-
         {loading ? (
           <View>{[0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)}</View>
         ) : services.length === 0 ? (
           <EmptyState
             icon={<PackageSearch size={30} color={theme.colors.primary600} />}
-            title={search ? 'No matching services' : 'No services here yet'}
-            subtitle={search ? 'Try a different search term.' : 'We don’t serve this pincode yet. Try changing your area.'}
+            title={isSearching ? 'No matching services' : 'No services here yet'}
+            subtitle={isSearching ? 'Try a different search term.' : 'We don’t serve this pincode yet. Try changing your area.'}
           />
         ) : (
-          <View style={styles.grid}>
-            {services.map((s) => (
-              <Card key={s.id} style={styles.serviceCard}>
-                <View style={styles.serviceHeader}>
-                  <Text style={styles.serviceName} numberOfLines={1}>{s.name}</Text>
-                  <Text style={styles.servicePrice}>{'₹'}{s.price}</Text>
+          <>
+            {!isSearching && (
+              <>
+                {/* Honest value-prop banner — no fabricated discount */}
+                <View style={styles.banner}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.bannerTitle}>Sparkling homes, hassle-free</Text>
+                    <Text style={styles.bannerSub}>Vetted professionals · transparent pricing</Text>
+                  </View>
+                  <Sparkles size={26} color="rgba(255,255,255,0.9)" />
                 </View>
-                <Text style={styles.serviceDesc} numberOfLines={2}>{s.description}</Text>
-                <Button
-                  title="Book Now"
-                  size="sm"
-                  variant="secondary"
-                  onPress={() => navigation.navigate('Services')}
-                  style={{ marginTop: theme.spacing[3] }}
-                />
-              </Card>
-            ))}
-          </View>
+
+                {categories.length > 2 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll} contentContainerStyle={styles.catContent}>
+                    {categories.map((c) => {
+                      const sel = activeCategory === c;
+                      return (
+                        <TouchableOpacity key={c} onPress={() => setActiveCategory(c)} style={[styles.catPill, sel && styles.catPillSel]} activeOpacity={0.8}>
+                          <Text style={[styles.catText, sel && styles.catTextSel]}>{c}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+
+                {popular.length > 0 && activeCategory === 'All' && (
+                  <>
+                    <Text style={styles.sectionTitle}>Most popular</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.popScroll} contentContainerStyle={styles.popContent}>
+                      {popular.map((s) => (
+                        <TouchableOpacity key={s.id} style={styles.popCard} activeOpacity={0.85} onPress={() => navigation.navigate('Services')}>
+                          <ServiceThumb uri={s.imageUrl} style={styles.popImage} />
+                          <View style={styles.popBody}>
+                            <Text style={styles.cardName} numberOfLines={1}>{s.name}</Text>
+                            <View style={styles.cardFooter}>
+                              <Text style={styles.cardPrice}>from ₹{s.price}</Text>
+                              <Text style={styles.bookedText}>{s.bookingCount} booked</Text>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </>
+                )}
+              </>
+            )}
+
+            <Text style={styles.sectionTitle}>{isSearching ? 'Results' : 'All services'}</Text>
+            <View style={styles.grid2}>
+              {gridServices.map((s) => (
+                <TouchableOpacity key={s.id} style={styles.gridCard} activeOpacity={0.85} onPress={() => navigation.navigate('Services')}>
+                  <ServiceThumb uri={s.imageUrl} style={styles.gridImage} />
+                  <View style={styles.gridBody}>
+                    <Text style={styles.cardName} numberOfLines={1}>{s.name}</Text>
+                    <Text style={styles.cardDesc} numberOfLines={2}>{s.description}</Text>
+                    <View style={styles.cardFooter}>
+                      <Text style={styles.cardPrice}>from ₹{s.price}</Text>
+                      <View style={styles.addBtn}><Plus size={16} color={theme.colors.textInverse} /></View>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
         )}
       </ScrollView>
     </View>
@@ -267,7 +350,7 @@ const styles = StyleSheet.create({
   },
 
   topHeader: { backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing[5], paddingBottom: theme.spacing[4], borderBottomWidth: 1, borderBottomColor: theme.colors.border },
-  greeting: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.xl, color: theme.colors.textPrimary, marginBottom: theme.spacing[1] },
+  greeting: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.xl, color: theme.colors.textPrimary, marginTop: theme.spacing[1] },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[1] },
   locationText: { fontFamily: theme.typography.fontFamily.medium, fontSize: theme.typography.sizes.sm, color: theme.colors.textSecondary },
   changeText: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.xs, color: theme.colors.primary600, marginLeft: theme.spacing[2] },
@@ -275,12 +358,47 @@ const styles = StyleSheet.create({
   searchContainer: { paddingHorizontal: theme.spacing[5], paddingTop: theme.spacing[4], backgroundColor: theme.colors.surfaceSubtle },
   scrollArea: { flex: 1 },
   scrollContent: { paddingHorizontal: theme.spacing[5], paddingBottom: theme.spacing[16] },
-  sectionTitle: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.lg, color: theme.colors.textPrimary, marginBottom: theme.spacing[4], marginTop: theme.spacing[2] },
+  sectionTitle: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.lg, color: theme.colors.textPrimary, marginBottom: theme.spacing[3], marginTop: theme.spacing[5] },
 
-  grid: { gap: theme.spacing[3] },
-  serviceCard: { padding: theme.spacing[4] },
-  serviceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing[2] },
-  serviceName: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.md, color: theme.colors.textPrimary, flex: 1, marginRight: theme.spacing[2] },
-  servicePrice: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.md, color: theme.colors.primary600 },
-  serviceDesc: { fontFamily: theme.typography.fontFamily.regular, fontSize: theme.typography.sizes.sm, color: theme.colors.textSecondary, lineHeight: 20 },
+  // Honest value-prop banner (solid brand teal, no fabricated offer)
+  banner: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: theme.colors.primary600,
+    borderRadius: theme.radius.xl,
+    padding: theme.spacing[5], marginTop: theme.spacing[4],
+    ...theme.shadows.md,
+  },
+  bannerTitle: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.lg, color: theme.colors.textInverse, marginBottom: 2 },
+  bannerSub: { fontFamily: theme.typography.fontFamily.regular, fontSize: theme.typography.sizes.sm, color: 'rgba(255,255,255,0.85)' },
+
+  // Category pills
+  catScroll: { marginTop: theme.spacing[5], marginHorizontal: -theme.spacing[5] },
+  catContent: { paddingHorizontal: theme.spacing[5], gap: theme.spacing[2] },
+  catPill: { paddingVertical: theme.spacing[2], paddingHorizontal: theme.spacing[4], borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  catPillSel: { backgroundColor: theme.colors.primary50, borderColor: theme.colors.primary600 },
+  catText: { fontFamily: theme.typography.fontFamily.medium, fontSize: theme.typography.sizes.sm, color: theme.colors.textSecondary },
+  catTextSel: { color: theme.colors.primary700, fontFamily: theme.typography.fontFamily.semiBold },
+
+  // Popular (horizontal)
+  popScroll: { marginHorizontal: -theme.spacing[5] },
+  popContent: { paddingHorizontal: theme.spacing[5], gap: theme.spacing[3], paddingBottom: theme.spacing[1] },
+  popCard: { width: 220, backgroundColor: theme.colors.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, overflow: 'hidden' },
+  popImage: { width: '100%', height: 110 },
+  popBody: { padding: theme.spacing[3] },
+
+  // 2-column grid
+  grid2: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  gridCard: { width: '48%', backgroundColor: theme.colors.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, overflow: 'hidden', marginBottom: theme.spacing[3] },
+  gridImage: { width: '100%', height: 110 },
+  gridBody: { padding: theme.spacing[3] },
+
+  // Shared card text
+  cardName: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.md, color: theme.colors.textPrimary },
+  cardDesc: { fontFamily: theme.typography.fontFamily.regular, fontSize: theme.typography.sizes.xs, color: theme.colors.textSecondary, lineHeight: 16, marginTop: 2, minHeight: 32 },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: theme.spacing[2] },
+  cardPrice: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.md, color: theme.colors.primary600 },
+  bookedText: { fontFamily: theme.typography.fontFamily.medium, fontSize: theme.typography.sizes.xs, color: theme.colors.textMuted },
+  addBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: theme.colors.primary600, justifyContent: 'center', alignItems: 'center' },
+
+  thumbFallback: { backgroundColor: theme.colors.primary50, justifyContent: 'center', alignItems: 'center' },
 });

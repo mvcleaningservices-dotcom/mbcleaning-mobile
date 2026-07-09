@@ -40,6 +40,13 @@ export interface ServiceItem {
   name: string;
   description: string;
   price: number;
+  imageUrl?: string;
+  category?: string;
+}
+
+/** A service ranked by real booking count (consumer "Popular" section). */
+export interface PopularService extends ServiceItem {
+  bookingCount: number;
 }
 
 export interface Booking {
@@ -119,6 +126,9 @@ export const api = {
         search ? `&search=${encodeURIComponent(search)}` : ''
       }`,
     ),
+
+  listPopular: (pincode: string) =>
+    req<PopularService[]>(`/services/popular?pincode=${encodeURIComponent(pincode)}`),
 
   createBooking: (
     token: string,
