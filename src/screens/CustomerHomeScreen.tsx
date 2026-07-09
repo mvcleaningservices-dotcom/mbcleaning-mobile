@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapPin, Search, PackageSearch } from 'lucide-react-native';
+import { StatusBar } from 'expo-status-bar';
 
 import { theme } from '../theme';
 import { Button } from '../components/Button';
@@ -26,6 +27,25 @@ export function CustomerHomeScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Unconditional animation hooks for the Pincode entry screen
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   useEffect(() => {
     loadInitialData();
@@ -102,32 +122,51 @@ export function CustomerHomeScreen() {
   // ── Pincode entry ──────────────────────────────────────────────
   if (!hasPincode) {
     return (
-      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.content}>
-          <View style={styles.headerCentered}>
-            <View style={styles.iconContainer}>
-              <MapPin color={theme.colors.primary600} size={32} />
-            </View>
-            <Text style={styles.title}>Where do you need service?</Text>
-            <Text style={styles.subtitle}>Enter your area pincode to see available services.</Text>
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={[styles.topTealPanel, { paddingTop: insets.top + theme.spacing[10] }]}>
+          <View style={styles.iconContainer}>
+            <MapPin color={theme.colors.primary600} size={32} />
           </View>
-          <Input
-            placeholder="6-digit pincode"
-            keyboardType="number-pad"
-            maxLength={6}
-            value={pincode}
-            onChangeText={setPincode}
-            style={{ textAlign: 'center', letterSpacing: 4, fontSize: 20, fontWeight: '600' }}
-          />
-          <Button title="Find Services" onPress={submitPincode} loading={busy} disabled={pincode.length < 6} />
+          <Text style={styles.title}>Where do you need service?</Text>
+          <Text style={styles.subtitle}>Enter your area pincode to see available services.</Text>
         </View>
-      </KeyboardAvoidingView>
+
+        <KeyboardAvoidingView 
+          style={styles.keyboardAvoidingView} 
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <Animated.View style={[
+            styles.card, 
+            { 
+              opacity: fadeAnim, 
+              transform: [{ translateY: slideAnim }] 
+            }
+          ]}>
+            <Input
+              placeholder="6-digit pincode"
+              keyboardType="number-pad"
+              maxLength={6}
+              value={pincode}
+              onChangeText={setPincode}
+              style={{ textAlign: 'center', letterSpacing: 4, fontSize: 20, fontWeight: '600' }}
+            />
+            <Button 
+              title="Find Services" 
+              onPress={submitPincode} 
+              loading={busy} 
+              disabled={pincode.length < 6} 
+            />
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </View>
     );
   }
 
   // ── Service listing ────────────────────────────────────────────
   return (
     <View style={styles.container}>
+      <StatusBar style="dark" />
       <View style={[styles.topHeader, { paddingTop: insets.top + theme.spacing[3] }]}>
         <Text style={styles.greeting}>Welcome back!</Text>
         <View style={styles.locationRow}>
@@ -186,11 +225,46 @@ export function CustomerHomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.surfaceSubtle },
-  content: { flex: 1, paddingHorizontal: theme.spacing[6], justifyContent: 'center' },
-  headerCentered: { alignItems: 'center', marginBottom: theme.spacing[8] },
-  iconContainer: { width: 64, height: 64, borderRadius: theme.radius['2xl'], backgroundColor: theme.colors.primary50, justifyContent: 'center', alignItems: 'center', marginBottom: theme.spacing[6] },
-  title: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes['2xl'], color: theme.colors.textPrimary, marginBottom: theme.spacing[2], textAlign: 'center' },
-  subtitle: { fontFamily: theme.typography.fontFamily.regular, fontSize: theme.typography.sizes.md, color: theme.colors.textSecondary, textAlign: 'center' },
+  
+  topTealPanel: {
+    backgroundColor: theme.colors.primary600,
+    paddingBottom: 100,
+    paddingHorizontal: theme.spacing[6],
+    alignItems: 'center',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+    marginTop: -60, // Create overlap with the teal panel
+  },
+  card: {
+    backgroundColor: theme.colors.surface,
+    marginHorizontal: theme.spacing[6],
+    padding: theme.spacing[6],
+    borderRadius: theme.radius.xl,
+    ...theme.shadows.lg,
+  },
+  iconContainer: { 
+    width: 64, 
+    height: 64, 
+    borderRadius: theme.radius['2xl'], 
+    backgroundColor: theme.colors.surface, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginBottom: theme.spacing[6] 
+  },
+  title: { 
+    fontFamily: theme.typography.fontFamily.bold, 
+    fontSize: theme.typography.sizes['2xl'], 
+    color: theme.colors.textInverse, 
+    marginBottom: theme.spacing[2], 
+    textAlign: 'center' 
+  },
+  subtitle: { 
+    fontFamily: theme.typography.fontFamily.regular, 
+    fontSize: theme.typography.sizes.md, 
+    color: 'rgba(255, 255, 255, 0.8)', 
+    textAlign: 'center' 
+  },
 
   topHeader: { backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing[5], paddingBottom: theme.spacing[4], borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   greeting: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.xl, color: theme.colors.textPrimary, marginBottom: theme.spacing[1] },
