@@ -12,9 +12,16 @@ import { alertDialog } from '../dialog';
 import { api } from '../api';
 import { session } from '../session';
 
+/** Seconds a user must wait between OTP resends. The backend throttles OTP
+ *  requests to 3/60s, so a shorter cooldown would just earn them a 429. */
+const RESEND_COOLDOWN_SECONDS = 30;
+
 export function OtpScreen() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
+  // Start on cooldown: an OTP was just sent to get the user to this screen.
+  const [resendIn, setResendIn] = useState(RESEND_COOLDOWN_SECONDS);
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const toast = useToast();
@@ -40,7 +47,38 @@ export function OtpScreen() {
   }, [fadeAnim, slideAnim]);
 
   const mobile = route.params?.mobile || '';
-  const devOtp = route.params?.devOtp;
+  // Held in state, not read straight from params, so a resend can surface the
+  // NEW dev code rather than keep showing the stale one.
+  const [devOtp, setDevOtp] = useState<string | undefined>(route.params?.devOtp);
+
+  // Resend cooldown countdown.
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  /**
+   * Re-request the OTP. Previously this screen had no resend at all: if the SMS
+   * was delayed or lost — routine in India — the user's only recovery was to
+   * kill the app and start over, at the narrowest point in the funnel.
+   */
+  const resend = async () => {
+    if (resendIn > 0 || resending) return;
+    setResending(true);
+    try {
+      const res = await api.requestOtp(mobile);
+      setDevOtp(res.devOtp);
+      setCode('');
+      setResendIn(RESEND_COOLDOWN_SECONDS);
+      inputRef.current?.focus();
+      toast.success(`New code sent to ${mobile}`);
+    } catch (e: any) {
+      toast.error(e.message || 'Could not resend the code. Please try again.');
+    } finally {
+      setResending(false);
+    }
+  };
 
   const verify = async () => {
     if (code.length !== 6) return alertDialog('Invalid OTP', 'Please enter a 6-digit OTP');
@@ -113,16 +151,43 @@ export function OtpScreen() {
               keyboardType="number-pad"
               maxLength={6}
               autoFocus
+              /* SMS autofill. Without these the app that RECEIVES the SMS made the
+                 user read and retype the code, while the website autofilled it —
+                 iOS needs textContentType, Android needs autoComplete. */
+              textContentType="oneTimeCode"
+              autoComplete="sms-otp"
+              importantForAutofill="yes"
               style={[styles.hiddenInput, Platform.OS === 'web' ? { outlineStyle: 'none' } as any : null]}
               caretHidden
             />
           </Pressable>
-          <Button 
-            title="Verify & Login" 
-            onPress={verify} 
+          <Button
+            title="Verify & Login"
+            onPress={verify}
             loading={busy}
             disabled={code.length < 6}
           />
+
+          {/* Resend — the recovery path when the SMS never arrives. */}
+          <TouchableOpacity
+            style={styles.resend}
+            onPress={resend}
+            disabled={resendIn > 0 || resending}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: resendIn > 0 || resending }}
+            accessibilityLabel={
+              resendIn > 0 ? `Resend code available in ${resendIn} seconds` : 'Resend code'
+            }
+          >
+            <Text style={[styles.resendText, resendIn > 0 && styles.resendTextDisabled]}>
+              {resending
+                ? 'Sending…'
+                : resendIn > 0
+                  ? `Didn't get the code? Resend in ${resendIn}s`
+                  : "Didn't get the code? Resend"}
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.changeNumber} onPress={() => navigation.goBack()}>
             <Text style={styles.changeNumberText}>Change mobile number</Text>
           </TouchableOpacity>
@@ -213,8 +278,23 @@ const styles = StyleSheet.create({
     height: '100%',
     opacity: 0,
   },
+  resend: {
+    marginTop: theme.spacing[5],
+    alignItems: 'center',
+    // Generous vertical padding keeps this a comfortable touch target even
+    // though the label itself is a single line of text.
+    paddingVertical: theme.spacing[2],
+  },
+  resendText: {
+    fontFamily: theme.typography.fontFamily.medium,
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.primary600,
+  },
+  resendTextDisabled: {
+    color: theme.colors.textMuted,
+  },
   changeNumber: {
-    marginTop: theme.spacing[6],
+    marginTop: theme.spacing[3],
     alignItems: 'center',
   },
   changeNumberText: {

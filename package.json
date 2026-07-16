@@ -4,6 +4,8 @@
   "main": "index.ts",
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/netinfo": "12.0.1",
     "@react-navigation/bottom-tabs": "^7.18.8",
     "@react-navigation/native": "^7.3.8",
     "@react-navigation/native-stack": "^7.17.10",
@@ -11,6 +13,7 @@
     "expo-font": "~57.0.0",
     "expo-haptics": "~57.0.0",
     "expo-secure-store": "~57.0.0",
+    "expo-splash-screen": "~57.0.4",
     "expo-status-bar": "~57.0.0",
     "lucide-react-native": "^1.23.0",
     "react": "19.2.3",
@@ -30,7 +33,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "typecheck": "node --stack-size=15000 node_modules/typescript/lib/tsc.js --noEmit"
   },
   "private": true
 }

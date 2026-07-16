@@ -12,15 +12,20 @@ import { EmptyState } from '../components/EmptyState';
 import { ServiceImage } from '../components/ServiceImage';
 import { useToast } from '../components/Toast';
 import { api, ServiceItem } from '../api';
+import { useCart } from '../cart/CartContext';
+import { useServiceDetail } from '../detail/ServiceDetailContext';
 import { session } from '../session';
 
 export function ServicesScreen() {
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<Record<string, ServiceItem>>({});
   const [activeCategory, setActiveCategory] = useState('All');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  // Shared cart — the same one the Home screen and the cart bar read from.
+  const { items: selectedList, total, has, toggle: toggleSelect } = useCart();
+  const { open: openDetail } = useServiceDetail();
 
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -58,24 +63,12 @@ export function ServicesScreen() {
     loadServices(text);
   };
 
-  const toggleSelect = (svc: ServiceItem) => {
-    setSelected((prev) => {
-      const next = { ...prev };
-      if (next[svc.id]) delete next[svc.id];
-      else next[svc.id] = svc;
-      return next;
-    });
-  };
-
-  const selectedList = Object.values(selected);
-  const total = selectedList.reduce((s, i) => s + i.price, 0);
-
   const categories = ['All', ...Array.from(new Set(services.map((s) => s.category).filter(Boolean) as string[]))];
   const visible = activeCategory === 'All' ? services : services.filter((s) => s.category === activeCategory);
 
   const proceedToCheckout = () => {
     if (selectedList.length === 0) return;
-    navigation.navigate('Checkout', { selectedServices: selectedList, total });
+    navigation.navigate('Checkout');
   };
 
   return (
@@ -135,13 +128,15 @@ export function ServicesScreen() {
       ) : (
         <Animated.ScrollView style={[styles.scrollArea, { opacity: fade }]} contentContainerStyle={styles.scrollContent}>
           {visible.map((s) => {
-            const isSel = !!selected[s.id];
+            const isSel = has(s.id);
             return (
               <TouchableOpacity
                 key={s.id}
                 activeOpacity={0.85}
-                onPress={() => toggleSelect(s)}
+                onPress={() => openDetail(s)}
                 style={[styles.row, isSel && styles.rowSel]}
+                accessibilityRole="button"
+                accessibilityLabel={`${s.name}, ${s.price} rupees. View details`}
               >
                 <ServiceImage uri={s.imageUrl} name={s.name} iconSize={22} style={styles.thumb} />
                 <View style={styles.rowBody}>
@@ -152,10 +147,17 @@ export function ServicesScreen() {
                   <Text style={styles.desc} numberOfLines={2}>{s.description}</Text>
                   <View style={styles.rowFooter}>
                     <Text style={styles.price}>₹{s.price}</Text>
-                    <View style={[styles.addBtn, isSel && styles.addBtnSel]}>
+                    <TouchableOpacity
+                      style={[styles.addBtn, isSel && styles.addBtnSel]}
+                      onPress={() => toggleSelect(s)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSel }}
+                      accessibilityLabel={`${isSel ? 'Remove' : 'Add'} ${s.name}`}
+                    >
                       {isSel ? <Check size={15} color={theme.colors.textInverse} /> : <Plus size={15} color={theme.colors.primary600} />}
                       <Text style={[styles.addText, isSel && styles.addTextSel]}>{isSel ? 'Added' : 'Add'}</Text>
-                    </View>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </TouchableOpacity>

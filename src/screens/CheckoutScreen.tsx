@@ -11,6 +11,7 @@ import { Card } from '../components/Card';
 import { ServiceImage } from '../components/ServiceImage';
 import { useToast } from '../components/Toast';
 import { api, ServiceItem } from '../api';
+import { useCart } from '../cart/CartContext';
 import { session } from '../session';
 
 const TIME_SLOTS = ['08:00-10:00', '10:00-12:00', '12:00-14:00', '14:00-16:00', '16:00-18:00'];
@@ -35,8 +36,10 @@ export function CheckoutScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
 
-  const selectedServices: ServiceItem[] = route.params?.selectedServices || [];
-  const total: number = route.params?.total || 0;
+  // Read the shared cart rather than navigation params: params meant only the one
+  // screen that owned the selection could ever start a checkout, and a reload or
+  // deep link arrived with an empty order.
+  const { items: selectedServices, total, clear: clearCart } = useCart();
 
   const [date, setDate] = useState('');
   const [timeSlot, setTimeSlot] = useState('');
@@ -88,6 +91,11 @@ export function CheckoutScreen() {
       } else if (res.payment.provider === 'razorpay') {
         toast.show('Booking saved. Complete payment to confirm.', 'info');
       }
+
+      // The order is placed, so the cart has served its purpose. It now persists
+      // across app restarts, so failing to clear it would leave the customer
+      // carrying the services they just booked into their next visit.
+      clearCart();
 
       // Success! Navigate to Bookings tab (reset stack so they can't go back to checkout)
       if (res.payment.provider !== 'razorpay') {
@@ -278,6 +286,9 @@ const styles = StyleSheet.create({
   dateChipNum: { fontFamily: theme.typography.fontFamily.bold, fontSize: 16, color: theme.colors.textPrimary },
   dateChipTextSel: { color: theme.colors.primary700 },
   slot: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  // Was referenced by the slot chips but never defined, so the selected slot had
+  // no highlight — only its label changed colour. Matches dateChipSel.
+  slotSel: { borderColor: theme.colors.primary600, backgroundColor: theme.colors.primary50 },
   slotText: { fontFamily: theme.typography.fontFamily.medium, fontSize: 13, color: theme.colors.textSecondary },
   slotTextSel: { color: theme.colors.primary700 },
 

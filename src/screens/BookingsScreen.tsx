@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ClipboardList, ChevronDown, ChevronUp, Calendar, User, Check, XCircle } from 'lucide-react-native';
@@ -131,30 +131,33 @@ export function BookingsScreen() {
         </View>
       </View>
 
-      <ScrollView
+      {/* FlatList (not ScrollView + .map): order history grows without bound, and
+          mounting every card at once gets slower with each booking a loyal
+          customer makes. FlatList virtualises so only visible rows are mounted. */}
+      <FlatList
         style={styles.scrollArea}
         contentContainerStyle={styles.scrollContent}
+        data={visible}
+        keyExtractor={(b) => b.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary600]} tintColor={theme.colors.primary600} />}
-      >
-        {loading && bookings.length === 0 && (
-          <View>{[0, 1, 2].map((i) => <SkeletonCard key={i} />)}</View>
-        )}
-
-        {!loading && visible.length === 0 && (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}><ClipboardList size={32} color={theme.colors.primary400} /></View>
-            <Text style={styles.emptyTitle}>{tab === 'upcoming' ? 'No upcoming bookings' : 'No past bookings yet'}</Text>
-            <Text style={styles.emptyDesc}>{tab === 'upcoming' ? 'Book a service and it’ll show up here — it only takes a minute.' : 'Completed and cancelled bookings will appear here.'}</Text>
-            {tab === 'upcoming' && <Button title="Book a service" onPress={() => navigation.navigate('HomeTab')} style={{ marginTop: 16, paddingHorizontal: theme.spacing[8] }} />}
-          </View>
-        )}
-
-        {visible.map((b) => {
+        ListEmptyComponent={
+          loading && bookings.length === 0 ? (
+            <View>{[0, 1, 2].map((i) => <SkeletonCard key={i} />)}</View>
+          ) : !loading ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}><ClipboardList size={32} color={theme.colors.primary400} /></View>
+              <Text style={styles.emptyTitle}>{tab === 'upcoming' ? 'No upcoming bookings' : 'No past bookings yet'}</Text>
+              <Text style={styles.emptyDesc}>{tab === 'upcoming' ? 'Book a service and it’ll show up here — it only takes a minute.' : 'Completed and cancelled bookings will appear here.'}</Text>
+              {tab === 'upcoming' && <Button title="Book a service" onPress={() => navigation.navigate('HomeTab')} style={{ marginTop: 16, paddingHorizontal: theme.spacing[8] }} />}
+            </View>
+          ) : null
+        }
+        renderItem={({ item: b }) => {
           const isExpanded = expandedId === b.id;
           const due = b.remainingDue || 0;
 
           return (
-            <Card key={b.id} style={styles.bookingCard}>
+            <Card style={styles.bookingCard}>
               <TouchableOpacity style={styles.bookingHeader} activeOpacity={0.7} onPress={() => setExpandedId(isExpanded ? null : b.id)}>
                 <View style={{ flex: 1, marginRight: theme.spacing[3] }}>
                   <Text style={styles.orderNumber}>{b.orderNumber}</Text>
@@ -229,8 +232,8 @@ export function BookingsScreen() {
               </View>
             </Card>
           );
-        })}
-      </ScrollView>
+        }}
+      />
     </View>
   );
 }

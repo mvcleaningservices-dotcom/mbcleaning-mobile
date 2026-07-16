@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
@@ -6,6 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, ClipboardList, Wallet, User } from 'lucide-react-native';
 
 import { theme } from '../theme';
+import { setUnauthorizedHandler } from '../api';
+import { session } from '../session';
+import { navigationRef, resetToAuth } from './navigationRef';
 
 // Screens
 import { LoginScreen } from '../screens/LoginScreen';
@@ -93,8 +96,19 @@ function CustomerTabs() {
 }
 
 export function RootNavigator() {
+  useEffect(() => {
+    /* If the server ever rejects our token, drop the dead session and return to
+       the auth flow. Registered here (not in api.ts) because only the navigation
+       layer can route. */
+    setUnauthorizedHandler(() => {
+      void session.clear();
+      resetToAuth();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {/* LoginScreen performs the auto-login check on mount and replaces to
           CustomerApp when a valid session exists; otherwise the Auth flow shows. */}
       <Stack.Navigator screenOptions={{ headerShown: false }}>

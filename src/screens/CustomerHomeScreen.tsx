@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Search, PackageSearch, Plus, Sparkles } from 'lucide-react-native';
+import { MapPin, Search, PackageSearch, Plus, Check, Sparkles } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { theme } from '../theme';
@@ -14,6 +14,9 @@ import { ServiceImage } from '../components/ServiceImage';
 import { useToast } from '../components/Toast';
 import { alertDialog } from '../dialog';
 import { api, ServiceItem, PopularService } from '../api';
+import { useCart } from '../cart/CartContext';
+import { useServiceDetail } from '../detail/ServiceDetailContext';
+import { CartBar } from '../components/CartBar';
 import { session } from '../session';
 
 function greetingPrefix() {
@@ -22,6 +25,8 @@ function greetingPrefix() {
 }
 
 export function CustomerHomeScreen() {
+  const { has, toggle } = useCart();
+  const { open: openDetail } = useServiceDetail();
   const [pincode, setPincode] = useState('');
   const [hasPincode, setHasPincode] = useState(false);
   const [services, setServices] = useState<ServiceItem[]>([]);
@@ -254,7 +259,14 @@ export function CustomerHomeScreen() {
                     <Text style={styles.sectionTitle}>Most popular</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.popScroll} contentContainerStyle={styles.popContent}>
                       {popular.map((s) => (
-                        <TouchableOpacity key={s.id} style={styles.popCard} activeOpacity={0.85} onPress={() => navigation.navigate('Services')}>
+                        <TouchableOpacity
+                          key={s.id}
+                          style={[styles.popCard, has(s.id) && styles.gridCardSel]}
+                          activeOpacity={0.85}
+                          onPress={() => openDetail(s)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${s.name}, from ${s.price} rupees. View details`}
+                        >
                           <ServiceImage uri={s.imageUrl} name={s.name} style={styles.popImage} />
                           <View style={styles.popBody}>
                             <Text style={styles.cardName} numberOfLines={1}>{s.name}</Text>
@@ -274,14 +286,35 @@ export function CustomerHomeScreen() {
             <Text style={styles.sectionTitle}>{isSearching ? 'Results' : 'All services'}</Text>
             <View style={styles.grid2}>
               {gridServices.map((s) => (
-                <TouchableOpacity key={s.id} style={styles.gridCard} activeOpacity={0.85} onPress={() => navigation.navigate('Services')}>
+                <TouchableOpacity
+                  key={s.id}
+                  style={[styles.gridCard, has(s.id) && styles.gridCardSel]}
+                  activeOpacity={0.85}
+                  onPress={() => openDetail(s)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${s.name}, from ${s.price} rupees. View details`}
+                >
                   <ServiceImage uri={s.imageUrl} name={s.name} style={styles.gridImage} />
                   <View style={styles.gridBody}>
                     <Text style={styles.cardName} numberOfLines={1}>{s.name}</Text>
                     <Text style={styles.cardDesc} numberOfLines={2}>{s.description}</Text>
                     <View style={styles.cardFooter}>
                       <Text style={styles.cardPrice}>from ₹{s.price}</Text>
-                      <View style={styles.addBtn}><Plus size={16} color={theme.colors.textInverse} /></View>
+                      {/* Reflects real cart state. This used to be a decorative
+                          <View> on a card that only navigated away — the button
+                          showed "+" and added nothing. */}
+                      <TouchableOpacity
+                        style={[styles.addBtn, has(s.id) && styles.addBtnSel]}
+                        onPress={() => toggle(s)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: has(s.id) }}
+                        accessibilityLabel={`${has(s.id) ? 'Remove' : 'Add'} ${s.name}`}
+                      >
+                        {has(s.id)
+                          ? <Check size={16} color={theme.colors.textInverse} />
+                          : <Plus size={16} color={theme.colors.textInverse} />}
+                      </TouchableOpacity>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -290,6 +323,8 @@ export function CustomerHomeScreen() {
           </>
         )}
       </ScrollView>
+      {/* Sticky cart — without it, adding from Home has nowhere to go. */}
+      <CartBar aboveTabBar />
     </View>
   );
 }
@@ -377,6 +412,7 @@ const styles = StyleSheet.create({
   // 2-column grid
   grid2: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   gridCard: { width: '48%', backgroundColor: theme.colors.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, overflow: 'hidden', marginBottom: theme.spacing[3] },
+  gridCardSel: { borderColor: theme.colors.primary600, borderWidth: 2 },
   gridImage: { width: '100%', height: 110 },
   gridBody: { padding: theme.spacing[3] },
 
@@ -387,4 +423,5 @@ const styles = StyleSheet.create({
   cardPrice: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.md, color: theme.colors.primary600 },
   bookedText: { fontFamily: theme.typography.fontFamily.medium, fontSize: theme.typography.sizes.xs, color: theme.colors.textMuted },
   addBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: theme.colors.primary600, justifyContent: 'center', alignItems: 'center' },
+  addBtnSel: { backgroundColor: theme.colors.success },
 });

@@ -6,21 +6,54 @@
 const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/api';
 
+/**
+ * Called when the server rejects our token (expired / invalidated).
+ *
+ * api.ts can't navigate on its own, so the navigation layer registers a handler
+ * at startup (see RootNavigator). Without this, an expired token left the user
+ * stuck on "Unauthorized" errors with no route back to login — consumer tokens
+ * last 30 days, so it's rare but total when it happens.
+ */
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn;
+}
+
+/** The login endpoints — a 401 there is a bad OTP, not an expired session. */
+const AUTH_PATHS = ['/auth/otp/request', '/auth/otp/verify'];
+
 async function req<T>(
   path: string,
   options: RequestInit = {},
   token?: string,
 ): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
+    });
+  } catch {
+    // fetch rejects (rather than returning a response) when the device can't
+    // reach the network at all. React Native surfaces this as the bare string
+    // "Network request failed", which is meaningless to a customer — so give
+    // them something they can act on.
+    throw new Error(
+      "Can't reach MV Cleaning. Please check your internet connection and try again.",
+    );
+  }
+
   const data = await res.json().catch(() => ({}));
+
   if (!res.ok) {
+    // Expired/invalid session → hand control back to the auth flow.
+    if (res.status === 401 && token && !AUTH_PATHS.some((p) => path.startsWith(p))) {
+      onUnauthorized?.();
+    }
     const msg = Array.isArray((data as any)?.message)
       ? (data as any).message.join(', ')
       : (data as any)?.message || 'Request failed';

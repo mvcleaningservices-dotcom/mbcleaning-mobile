@@ -4,6 +4,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ToastProvider } from './src/components/Toast';
+import { OfflineBanner } from './src/components/OfflineBanner';
+import { CartProvider } from './src/cart/CartContext';
+import { ServiceDetailProvider } from './src/detail/ServiceDetailContext';
+import { ServiceDetailSheet } from './src/components/ServiceDetailSheet';
 import { View, ActivityIndicator, Platform, StyleSheet } from 'react-native';
 import { theme } from './src/theme';
 
@@ -27,8 +31,18 @@ export default function App() {
   const app = (
     <SafeAreaProvider>
       <ToastProvider>
-        <StatusBar style="auto" />
-        <RootNavigator />
+        {/* Cart wraps the navigator: every screen can add to it, and it must
+            outlive any single screen (it used to live in ServicesScreen state). */}
+        <CartProvider>
+          <ServiceDetailProvider>
+            <StatusBar style="auto" />
+            {/* Overlays every screen — connectivity loss isn't screen-specific. */}
+            <OfflineBanner />
+            <RootNavigator />
+            {/* One sheet instance, opened from any service card on any screen. */}
+            <ServiceDetailSheet />
+          </ServiceDetailProvider>
+        </CartProvider>
       </ToastProvider>
     </SafeAreaProvider>
   );
