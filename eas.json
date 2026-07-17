@@ -7,8 +7,12 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:3000/api"
+        "_comment": "A dev build loads its JS from Metro, so the URL that actually applies at runtime is EXPO_PUBLIC_API_URL in mobile/.env — this value is only the build-time fallback. It must still not say localhost: on a phone that means the phone itself, not the dev machine. Both need the dev machine's LAN IP, which changes with the network.",
+        "EXPO_PUBLIC_API_URL": "http://192.168.29.77:3000/api"
       }
     },
     "preview": {
