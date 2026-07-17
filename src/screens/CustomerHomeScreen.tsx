@@ -25,7 +25,7 @@ function greetingPrefix() {
 }
 
 export function CustomerHomeScreen() {
-  const { has, toggle } = useCart();
+  const { has, toggle, count } = useCart();
   const { open: openDetail } = useServiceDetail();
   const [pincode, setPincode] = useState('');
   const [hasPincode, setHasPincode] = useState(false);
@@ -219,7 +219,14 @@ export function CustomerHomeScreen() {
         />
       </View>
 
-      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.scrollArea}
+        /* Extra bottom padding only while the cart bar is showing, so the
+           last row of cards can always be scrolled clear of it. The static
+           64px was set before the bar existed and is shorter than it. */
+        contentContainerStyle={[styles.scrollContent, count > 0 && { paddingBottom: 96 }]}
+        keyboardShouldPersistTaps="handled"
+      >
         {loading ? (
           <View>{[0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)}</View>
         ) : services.length === 0 ? (
@@ -324,7 +331,7 @@ export function CustomerHomeScreen() {
         )}
       </ScrollView>
       {/* Sticky cart — without it, adding from Home has nowhere to go. */}
-      <CartBar aboveTabBar />
+      <CartBar inTabScreen />
     </View>
   );
 }

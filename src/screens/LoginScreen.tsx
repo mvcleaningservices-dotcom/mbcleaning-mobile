@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Animated, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Sparkles, Phone } from 'lucide-react-native';
+import { Phone } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -88,7 +88,14 @@ export function LoginScreen() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.primary600 }]}>
         <StatusBar style="light" />
-        <Sparkles color={theme.colors.surface} size={48} />
+        {/* Auto-login check — brief, but it's the very first thing a returning
+            user sees, so it shows the brand rather than a generic sparkle. */}
+        <Image
+          source={require('../../assets/logo_white.png')}
+          style={styles.brandLogo}
+          resizeMode="contain"
+          accessibilityLabel="MV Cleaning Services"
+        />
       </View>
     );
   }
@@ -97,9 +104,15 @@ export function LoginScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
       <View style={[styles.topTealPanel, { paddingTop: insets.top + theme.spacing[10] }]}>
-        <View style={styles.iconContainer}>
-          <Sparkles color={theme.colors.primary600} size={32} />
-        </View>
+        {/* The real logo, not a generic sparkle icon — this is the first screen a
+            customer sees. White knockout because the panel is primary-600, where
+            the colour mark (which IS that blue) would disappear. */}
+        <Image
+          source={require('../../assets/logo_white.png')}
+          style={styles.brandLogo}
+          resizeMode="contain"
+          accessibilityLabel="MV Cleaning Services"
+        />
         <Text style={styles.title}>Welcome to MV Cleaning</Text>
         <Text style={styles.subtitle}>Enter your mobile number to log in or create an account.</Text>
       </View>
@@ -158,14 +171,10 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.xl,
     ...theme.shadows.lg,
   },
-  iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: theme.radius['2xl'],
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: theme.spacing[6],
+  brandLogo: {
+    width: 190,
+    height: 56,
+    marginBottom: theme.spacing[4],
   },
   title: {
     fontFamily: theme.typography.fontFamily.bold,

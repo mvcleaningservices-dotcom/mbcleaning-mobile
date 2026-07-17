@@ -10,17 +10,20 @@
  */
 export const theme = {
   colors: {
-    // Primary — brand teal (canonical, matches tokens.css)
-    primary50: '#f0fdfa',
-    primary100: '#ccfbf1',
-    primary200: '#99f6e4',
-    primary300: '#5eead4',
-    primary400: '#2dd4bf',
-    primary500: '#14b8a6',
-    primary600: '#0d9488', // Brand Main
-    primary700: '#0f766e', // hover
-    primary800: '#115e59',
-    primary900: '#134e4a',
+    // Primary — MV brand blue, taken from the logo (canonical, matches
+    // web/src/tokens.css and admin/src/tokens.css — keep all three in step).
+    // Anchored so 600 is exactly the logo blue; was teal while the logo was
+    // blue, which read as an accident rather than a brand.
+    primary50: '#f2f6fb',
+    primary100: '#e1eaf6',
+    primary200: '#c2d5ed',
+    primary300: '#94b5e0',
+    primary400: '#5287cc',
+    primary500: '#2567be',
+    primary600: '#014eb4', // Brand Main — the logo blue
+    primary700: '#014297', // hover
+    primary800: '#01357a',
+    primary900: '#01295e',
 
     // Accent — warm orange (canonical) for high-intent highlights
     accent500: '#f97316',
@@ -41,7 +44,7 @@ export const theme = {
     // Borders
     border: '#e2e8f0',
     borderLight: '#f1f5f9',
-    borderFocus: '#5eead4',
+    borderFocus: '#94b5e0',
 
     // Status (canonical, matches tokens.css)
     success: '#16a34a',

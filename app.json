@@ -16,9 +16,9 @@
       "package": "in.mvcleaningservices.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "_comment": "foregroundImage is the WHITE symbol, so the background must be the brand blue — it was #E6F4FE (Expo's light blue), which would have rendered a white mark on a near-white field. backgroundImage is intentionally omitted: it overrides backgroundColor, and Expo's default was placeholder art.",
+        "backgroundColor": "#014eb4",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -33,11 +33,13 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "imageWidth": 180,
+          "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#0d9488"
+          "_comment": "Brand blue is only safe here because splash-icon.png is the WHITE knockout. The full-colour logo is itself #014eb4, so it would vanish into this background — never point this at the colour mark.",
+          "backgroundColor": "#014eb4"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }
