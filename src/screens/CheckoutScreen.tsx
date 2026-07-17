@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { ChevronLeft, Calendar, Clock, MapPin, CreditCard, Wallet, ShieldCheck, Smartphone, Check } from 'lucide-react-native';
 
 import { theme } from '../theme';
@@ -16,17 +17,37 @@ import { session } from '../session';
 
 const TIME_SLOTS = ['08:00-10:00', '10:00-12:00', '12:00-14:00', '14:00-16:00', '16:00-18:00'];
 
+/** Must match MAX_DAYS_AHEAD in the backend's BookingsService. */
+const MAX_DAYS_AHEAD = 60;
+
+/** YYYY-MM-DD from LOCAL date parts (avoids the UTC day-shift in IST). */
+function localIso(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function dateOffset(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
 // Next 7 selectable days, using LOCAL date parts (avoids UTC day-shift in IST).
 function nextSevenDays() {
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const d = dateOffset(i);
     return {
-      iso,
+      iso: localIso(d),
       weekday: i === 0 ? 'Today' : d.toLocaleDateString('en-IN', { weekday: 'short' }),
       dayNum: d.getDate(),
     };
+  });
+}
+
+/** e.g. "Mon, 24 Aug" — for a date picked outside the quick chips. */
+function longLabel(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short',
   });
 }
 
@@ -42,6 +63,7 @@ export function CheckoutScreen() {
   const { items: selectedServices, total, clear: clearCart } = useCart();
 
   const [date, setDate] = useState('');
+  const [showPicker, setShowPicker] = useState(false);
   const [timeSlot, setTimeSlot] = useState('');
   const [address, setAddress] = useState('');
   const [payAdvanceFromWallet, setPayAdvanceFromWallet] = useState(false);
@@ -114,6 +136,22 @@ export function CheckoutScreen() {
   };
 
   const days = nextSevenDays();
+  // A date chosen from the calendar rather than the quick chips: no chip is lit,
+  // so it needs its own confirmation line or the choice looks like it was lost.
+  const customDate = date && !days.some((d) => d.iso === date) ? date : '';
+
+  /**
+   * Android shows a self-dismissing dialog and fires 'dismissed' on cancel; iOS
+   * renders inline and stays put. So the flag is cleared for Android on EVERY
+   * event — leaving it set means the dialog immediately reopens itself and the
+   * screen becomes impossible to leave.
+   */
+  const onPickDate = (event: DateTimePickerEvent, selected?: Date) => {
+    setShowPicker(Platform.OS === 'ios');
+    if (event.type === 'dismissed' || !selected) return;
+    setDate(localIso(selected));
+  };
+
   const isFormValid = date.length > 5 && !!timeSlot && address.trim().length > 5;
   const ctaLabel = !date
     ? 'Select a date'
@@ -171,6 +209,31 @@ export function CheckoutScreen() {
               })}
             </View>
           </ScrollView>
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setShowPicker(true)}
+            style={styles.moreDatesBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Choose another date from the calendar"
+          >
+            <Calendar size={15} color={theme.colors.primary600} />
+            <Text style={styles.moreDatesText}>
+              {customDate ? longLabel(customDate) : 'Choose another date'}
+            </Text>
+            {!!customDate && <Check size={15} color={theme.colors.primary600} />}
+          </TouchableOpacity>
+
+          {showPicker && (
+            <DateTimePicker
+              value={date ? new Date(`${date}T00:00:00`) : new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
+              minimumDate={dateOffset(0)}
+              maximumDate={dateOffset(MAX_DAYS_AHEAD)}
+              onChange={onPickDate}
+            />
+          )}
 
           <View style={[styles.labelRow, { marginTop: theme.spacing[5] }]}>
             <Clock size={16} color={theme.colors.primary600} />
@@ -282,6 +345,22 @@ const styles = StyleSheet.create({
   slotsScroll: { marginHorizontal: -theme.spacing[5], paddingHorizontal: theme.spacing[5], paddingBottom: 4 },
   dateChip: { alignItems: 'center', justifyContent: 'center', minWidth: 56, paddingVertical: 10, paddingHorizontal: 10, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
   dateChipSel: { borderColor: theme.colors.primary600, backgroundColor: theme.colors.primary50 },
+  // Calendar escape hatch. Quieter than the chips — most bookings are this week,
+  // so the common path stays the loud one. 44pt tall for the touch target.
+  moreDatesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 8,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    marginTop: theme.spacing[3],
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  moreDatesText: { fontFamily: theme.typography.fontFamily.medium, fontSize: 13, color: theme.colors.primary700 },
   dateChipDay: { fontFamily: theme.typography.fontFamily.medium, fontSize: 12, color: theme.colors.textSecondary, marginBottom: 2 },
   dateChipNum: { fontFamily: theme.typography.fontFamily.bold, fontSize: 16, color: theme.colors.textPrimary },
   dateChipTextSel: { color: theme.colors.primary700 },
