@@ -115,9 +115,11 @@ export function RootNavigator() {
         <Stack.Screen name="Auth" component={AuthNavigator} />
         <Stack.Screen name="CustomerApp" component={CustomerTabs} />
 
-        {/* Shared / deep screens */}
-        <Stack.Screen name="Services" component={ServicesScreen} options={{ headerShown: true, title: 'Our Services' }} />
-        <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ headerShown: true, title: 'Checkout' }} />
+        {/* Shared / deep screens. headerShown stays false (inherited): each of
+            these draws its OWN header with a back button and title, so a stack
+            header on top of it just repeats the title in a second bar. */}
+        <Stack.Screen name="Services" component={ServicesScreen} />
+        <Stack.Screen name="Checkout" component={CheckoutScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
