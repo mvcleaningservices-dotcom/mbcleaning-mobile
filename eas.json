@@ -21,7 +21,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.mvcleaningservices.in/api"
+        "_comment": "Standalone APK — bakes this URL in at build time (no Metro). Points at the live Vercel backend so it works on any phone, anywhere. When a stable api.mvcleaningservices.in is set up on the backend project, switch to it and rebuild.",
+        "EXPO_PUBLIC_API_URL": "https://mvcleaning-backend.vercel.app/api"
       }
     },
     "production": {
@@ -30,7 +31,8 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.mvcleaningservices.in/api"
+        "_comment": "Play Store build. Prefer a stable custom domain (api.mvcleaningservices.in) here before submitting, since the API URL is baked in and changing it means a new build + resubmission. Using the Vercel URL for now.",
+        "EXPO_PUBLIC_API_URL": "https://mvcleaning-backend.vercel.app/api"
       }
     }
   },
