@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { ChevronLeft, Calendar, Clock, MapPin, CreditCard, Wallet, ShieldCheck, Smartphone, Check } from 'lucide-react-native';
+import { ChevronLeft, Calendar, Clock, MapPin, CreditCard, Wallet, ShieldCheck, Smartphone, Check, Trash2, Plus } from 'lucide-react-native';
 
 import { theme } from '../theme';
 import { Button } from '../components/Button';
@@ -60,7 +60,7 @@ export function CheckoutScreen() {
   // Read the shared cart rather than navigation params: params meant only the one
   // screen that owned the selection could ever start a checkout, and a reload or
   // deep link arrived with an empty order.
-  const { items: selectedServices, total, clear: clearCart } = useCart();
+  const { items: selectedServices, total, clear: clearCart, remove } = useCart();
 
   const [date, setDate] = useState('');
   const [showPicker, setShowPicker] = useState(false);
@@ -146,6 +146,23 @@ export function CheckoutScreen() {
    * event — leaving it set means the dialog immediately reopens itself and the
    * screen becomes impossible to leave.
    */
+  // Remove an item from the order. Confirms first (matches web), and if it was
+  // the last item there's nothing left to check out, so go back to browsing.
+  const removeItem = (id: string, name: string) => {
+    Alert.alert('Remove item', `Remove "${name}" from your order?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          const wasLast = selectedServices.length === 1;
+          remove(id);
+          if (wasLast) navigation.goBack();
+        },
+      },
+    ]);
+  };
+
   const onPickDate = (event: DateTimePickerEvent, selected?: Date) => {
     setShowPicker(Platform.OS === 'ios');
     if (event.type === 'dismissed' || !selected) return;
@@ -181,8 +198,21 @@ export function CheckoutScreen() {
               <ServiceImage uri={s.imageUrl} name={s.name} iconSize={16} style={styles.summaryThumb} />
               <Text style={styles.summaryName} numberOfLines={1}>{s.name}</Text>
               <Text style={styles.summaryPrice}>₹{s.price}</Text>
+              <TouchableOpacity
+                onPress={() => removeItem(s.id, s.name)}
+                style={styles.summaryRemove}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${s.name}`}
+              >
+                <Trash2 size={18} color={theme.colors.error} />
+              </TouchableOpacity>
             </View>
           ))}
+          <TouchableOpacity style={styles.addMore} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+            <Plus size={16} color={theme.colors.primary600} />
+            <Text style={styles.addMoreText}>Add more services</Text>
+          </TouchableOpacity>
           <View style={styles.divider} />
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
@@ -337,6 +367,9 @@ const styles = StyleSheet.create({
   summaryThumb: { width: 40, height: 40, borderRadius: theme.radius.md },
   summaryName: { fontFamily: theme.typography.fontFamily.medium, fontSize: theme.typography.sizes.sm, color: theme.colors.textPrimary, flex: 1 },
   summaryPrice: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.sm, color: theme.colors.textPrimary },
+  summaryRemove: { padding: 4 },
+  addMore: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2], paddingVertical: theme.spacing[2] },
+  addMoreText: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.sm, color: theme.colors.primary600 },
   divider: { height: 1, backgroundColor: theme.colors.border, marginTop: theme.spacing[2], marginBottom: theme.spacing[3] },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalLabel: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.md, color: theme.colors.textPrimary },
