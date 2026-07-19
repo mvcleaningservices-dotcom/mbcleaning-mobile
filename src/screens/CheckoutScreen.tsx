@@ -88,6 +88,32 @@ export function CheckoutScreen() {
     })();
   }, []);
 
+  // Reconcile the saved cart against the live catalogue. The cart is persisted on
+  // the device, so it can hold services an admin has since removed/deactivated —
+  // those would fail the order with a vague "one or more unavailable". Drop them
+  // up front and say so, rather than dead-ending at the pay button. If nothing is
+  // left, there's nothing to check out, so go back to browsing.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .listCatalog()
+      .then((catalog) => {
+        if (cancelled) return;
+        const valid = new Set(catalog.map((s) => s.id));
+        const stale = selectedServices.filter((s) => !valid.has(s.id));
+        if (stale.length === 0) return;
+        stale.forEach((s) => remove(s.id));
+        toast.show(`No longer available, removed: ${stale.map((s) => s.name).join(', ')}`, 'info');
+        if (stale.length === selectedServices.length) navigation.goBack();
+      })
+      .catch(() => {}); // never block checkout on a failed reconcile
+    return () => {
+      cancelled = true;
+    };
+    // Run once on mount against the cart as it was restored.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const placeBooking = async () => {
     const token = await session.getToken();
     if (!token) return;

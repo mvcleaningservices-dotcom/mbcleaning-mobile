@@ -163,6 +163,10 @@ export const api = {
   listPopular: (pincode: string) =>
     req<PopularService[]>(`/services/popular?pincode=${encodeURIComponent(pincode)}`),
 
+  // Full active catalogue (no pincode filter) — used to reconcile a saved cart
+  // against what still exists. Only ids are needed here.
+  listCatalog: () => req<{ id: string }[]>('/services/catalog'),
+
   createBooking: (
     token: string,
     payload: {
