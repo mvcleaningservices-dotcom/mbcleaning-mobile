@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Environment — NEVER commit real secrets. Keep .env.example.
+.env*
+!.env.example
