@@ -192,15 +192,55 @@ export const api = {
       token,
     ),
 
+  // Hand Razorpay's checkout result to the server, which verifies the
+  // signature before confirming the booking.
+  verifyPayment: (
+    token: string,
+    payload: {
+      razorpayOrderId: string;
+      razorpayPaymentId: string;
+      razorpaySignature: string;
+    },
+  ) =>
+    req<Booking>(
+      '/payments/verify',
+      { method: 'POST', body: JSON.stringify(payload) },
+      token,
+    ),
+
   myBookings: (token: string) => req<Booking[]>('/bookings/mine', {}, token),
 
   // ---- Wallet (Phase 4) ----
   getWallet: (token: string) => req<WalletState>('/wallet', {}, token),
 
   topupWallet: (token: string, amount: number) =>
-    req<{ transactionId: string; payment: { required: boolean; provider?: string; amount?: number } }>(
+    req<{
+      transactionId: string;
+      payment: {
+        required: boolean;
+        provider?: 'razorpay' | 'test';
+        razorpayOrderId?: string;
+        keyId?: string;
+        amount?: number;
+      };
+    }>(
       '/wallet/topup',
       { method: 'POST', body: JSON.stringify({ amount }) },
+      token,
+    ),
+
+  // Verify a wallet top-up paid through Razorpay checkout (server-side HMAC check).
+  verifyTopup: (
+    token: string,
+    payload: {
+      razorpayOrderId: string;
+      razorpayPaymentId: string;
+      razorpaySignature: string;
+    },
+  ) =>
+    req<{ balance: number }>(
+      '/wallet/topup/verify',
+      { method: 'POST', body: JSON.stringify(payload) },
       token,
     ),
 

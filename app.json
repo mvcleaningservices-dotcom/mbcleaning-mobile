@@ -21,7 +21,16 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "_queriesComment": "Android 11+ hides other apps unless they are declared here. Without this, Linking.canOpenURL/openURL fails for UPI apps even when they ARE installed, and Razorpay checkout dead-ends at 'web page not available'.",
+      "queries": [
+        { "scheme": "upi" },
+        { "scheme": "tez" },
+        { "scheme": "phonepe" },
+        { "scheme": "paytmmp" },
+        { "scheme": "bhim" },
+        { "scheme": "credpay" }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

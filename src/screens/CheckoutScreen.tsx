@@ -11,6 +11,7 @@ import { Input } from '../components/Input';
 import { Card } from '../components/Card';
 import { ServiceImage } from '../components/ServiceImage';
 import { useToast } from '../components/Toast';
+import { RazorpayCheckout, type CheckoutResult } from '../components/RazorpayCheckout';
 import { api, ServiceItem } from '../api';
 import { useCart } from '../cart/CartContext';
 import { session } from '../session';
@@ -70,6 +71,13 @@ export function CheckoutScreen() {
 
   const [walletBalance, setWalletBalance] = useState(0);
   const [busy, setBusy] = useState(false);
+  /** Set once a Razorpay order exists — drives the checkout WebView. */
+  const [payment, setPayment] = useState<{
+    keyId: string;
+    orderId: string;
+    amount: number;
+    orderNumber: string;
+  } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -114,6 +122,44 @@ export function CheckoutScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Clear the cart and land on Bookings — the single exit for a placed order. */
+  const finishBooking = () => {
+    // The order is placed, so the cart has served its purpose. It now persists
+    // across app restarts, so failing to clear it would leave the customer
+    // carrying the services they just booked into their next visit.
+    clearCart();
+    toast.success('Booking confirmed! 🎉');
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'CustomerApp', params: { screen: 'BookingsTab' } }],
+    });
+  };
+
+  /** Razorpay paid → verify server-side before treating the booking as placed. */
+  const onPaymentSuccess = async (result: CheckoutResult) => {
+    setPayment(null);
+    setBusy(true);
+    try {
+      const token = await session.getToken();
+      if (!token) throw new Error('Session expired. Please log in again.');
+      await api.verifyPayment(token, result);
+      finishBooking();
+    } catch (e: any) {
+      // Money may have left their account, so never imply the booking is gone.
+      toast.error(
+        e.message || 'Payment taken but confirmation failed. Check My Bookings.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onPaymentCancel = (reason?: string) => {
+    setPayment(null);
+    setBusy(false);
+    toast.show(reason || 'Payment cancelled.', 'info');
+  };
+
   const placeBooking = async () => {
     const token = await session.getToken();
     if (!token) return;
@@ -130,30 +176,24 @@ export function CheckoutScreen() {
         advanceMethod: payAdvanceFromWallet ? 'wallet' : 'razorpay',
       });
 
-      let finalBooking = res.booking;
-
-      if (!res.payment.required) {
-        // Advance is ₹0 or paid from wallet fully
-      } else if (res.payment.provider === 'test') {
-        finalBooking = await api.testConfirm(token, res.booking.id);
-      } else if (res.payment.provider === 'razorpay') {
-        toast.show('Booking saved. Complete payment to confirm.', 'info');
+      if (res.payment.required && res.payment.provider === 'razorpay') {
+        // Real money: hand off to Razorpay checkout. The cart is NOT cleared and
+        // we do NOT navigate — the customer stays here until the payment is
+        // verified, so a cancelled payment leaves them exactly where they were.
+        setPayment({
+          keyId: res.payment.keyId!,
+          orderId: res.payment.razorpayOrderId!,
+          amount: res.payment.amount ?? 0,
+          orderNumber: res.booking.orderNumber,
+        });
+        return; // finishBooking() takes over once payment is verified
       }
 
-      // The order is placed, so the cart has served its purpose. It now persists
-      // across app restarts, so failing to clear it would leave the customer
-      // carrying the services they just booked into their next visit.
-      clearCart();
-
-      // Success! Navigate to Bookings tab (reset stack so they can't go back to checkout)
-      if (res.payment.provider !== 'razorpay') {
-        toast.success('Booking confirmed! 🎉');
+      if (res.payment.required && res.payment.provider === 'test') {
+        await api.testConfirm(token, res.booking.id);
       }
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'CustomerApp', params: { screen: 'BookingsTab' } }],
-      });
 
+      finishBooking();
     } catch (e: any) {
       toast.error(e.message || 'Booking failed');
     } finally {
@@ -368,6 +408,18 @@ export function CheckoutScreen() {
           style={{ flex: 1, marginLeft: theme.spacing[4] }}
         />
       </View>
+
+      {payment && (
+        <RazorpayCheckout
+          visible
+          keyId={payment.keyId}
+          orderId={payment.orderId}
+          amount={payment.amount}
+          description={`Advance for order ${payment.orderNumber}`}
+          onSuccess={onPaymentSuccess}
+          onCancel={onPaymentCancel}
+        />
+      )}
     </View>
   );
 }

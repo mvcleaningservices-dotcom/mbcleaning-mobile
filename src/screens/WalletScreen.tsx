@@ -10,6 +10,7 @@ import { theme } from '../theme';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useToast } from '../components/Toast';
+import { RazorpayCheckout, type CheckoutResult } from '../components/RazorpayCheckout';
 import { alertDialog } from '../dialog';
 import { api, WalletState, WalletTxn } from '../api';
 import { session } from '../session';
@@ -37,6 +38,12 @@ function groupByMonth(history: WalletTxn[]) {
 export function WalletScreen() {
   const [wallet, setWallet] = useState<WalletState>({ balance: 0, history: [] });
   const [amount, setAmount] = useState('');
+  /** Set once a Razorpay order exists — drives the checkout WebView. */
+  const [payment, setPayment] = useState<{
+    keyId: string;
+    orderId: string;
+    amount: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
@@ -64,11 +71,19 @@ export function WalletScreen() {
     try {
       const res = await api.topupWallet(token, value);
       // Dev/test mode confirms instantly; live mode opens Razorpay checkout.
+      if (res.payment.provider === 'razorpay') {
+        // Stay on this screen until the payment is verified — onTopupSuccess
+        // credits the balance and clears the field.
+        setPayment({
+          keyId: res.payment.keyId!,
+          orderId: res.payment.razorpayOrderId!,
+          amount: res.payment.amount ?? value,
+        });
+        return;
+      }
       if (res.payment.provider === 'test') {
         await api.confirmTopupTest(token, res.transactionId);
         toast.success(`₹${value} added to your wallet.`);
-      } else {
-        toast.show('Razorpay checkout opens here in production.', 'info');
       }
       setAmount('');
       await load();
@@ -77,6 +92,34 @@ export function WalletScreen() {
     } finally {
       setBusy(false);
     }
+  };
+
+  /** Razorpay paid → verify server-side, then reflect the new balance. */
+  const onTopupSuccess = async (result: CheckoutResult) => {
+    const paid = payment?.amount ?? 0;
+    setPayment(null);
+    setBusy(true);
+    try {
+      const token = await session.getToken();
+      if (!token) throw new Error('Session expired. Please log in again.');
+      await api.verifyTopup(token, result);
+      setAmount('');
+      await load();
+      toast.success(`₹${paid} added to your wallet.`);
+    } catch (e: any) {
+      // Money may have left their account — never imply nothing happened.
+      toast.error(
+        e.message || 'Payment taken but the balance did not update. Please refresh.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onTopupCancel = (reason?: string) => {
+    setPayment(null);
+    setBusy(false);
+    toast.show(reason || 'Payment cancelled.', 'info');
   };
 
   if (loading) {
@@ -161,6 +204,18 @@ export function WalletScreen() {
           ))
         )}
       </ScrollView>
+
+      {payment && (
+        <RazorpayCheckout
+          visible
+          keyId={payment.keyId}
+          orderId={payment.orderId}
+          amount={payment.amount}
+          description={`Wallet top-up of ₹${payment.amount}`}
+          onSuccess={onTopupSuccess}
+          onCancel={onTopupCancel}
+        />
+      )}
     </SafeAreaView>
   );
 }
