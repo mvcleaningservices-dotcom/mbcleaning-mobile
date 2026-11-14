@@ -56,6 +56,14 @@
           "cameraPermission": "MV Cleaning needs the camera so Service Partners can take a profile photo or a photo of an ID document.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "MV Cleaning uses your location to mark your home on the map, and to show customers where their Service Partner is while a job is in progress.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isIosBackgroundLocationEnabled": false
+        }
       ]
     ],
     "extra": {

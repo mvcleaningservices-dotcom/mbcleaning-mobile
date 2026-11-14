@@ -23,6 +23,8 @@ import { SetPasswordScreen } from '../screens/SetPasswordScreen';
 import { VendorOrdersScreen } from '../screens/vendor/VendorOrdersScreen';
 import { VendorRechargeScreen } from '../screens/vendor/VendorRechargeScreen';
 import { VendorProfileScreen } from '../screens/vendor/VendorProfileScreen';
+import { TrackingScreen } from '../screens/TrackingScreen';
+import { VendorLocationSharer } from '../vendor/VendorLocationSharer';
 
 // Two sides in one app (client V2): the customer app, and Vendor mode for
 // Service Partners ("Login as Vendor" on the login screen, or "Switch to Vendor
@@ -38,6 +40,8 @@ export type RootStackParamList = {
   // (selectedServices, total). Kept loose here to avoid coupling the param list
   // to screen-level types.
   Checkout: undefined;
+  /** V2: live tracking for one booking (OpenStreetMap). */
+  Tracking: { bookingId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -107,6 +111,9 @@ function CustomerTabs() {
 function VendorTabs() {
   const insets = useSafeAreaInsets();
   return (
+    <>
+    {/* Shares the phone's position only while a job is In Progress and the app is open. */}
+    <VendorLocationSharer />
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
@@ -144,6 +151,7 @@ function VendorTabs() {
         options={{ tabBarLabel: 'Profile', tabBarIcon: ({ color, size }) => <User color={color} size={size} /> }}
       />
     </Tab.Navigator>
+    </>
   );
 }
 
@@ -174,6 +182,7 @@ export function RootNavigator() {
             header on top of it just repeats the title in a second bar. */}
         <Stack.Screen name="Services" component={ServicesScreen} />
         <Stack.Screen name="Checkout" component={CheckoutScreen} />
+        <Stack.Screen name="Tracking" component={TrackingScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

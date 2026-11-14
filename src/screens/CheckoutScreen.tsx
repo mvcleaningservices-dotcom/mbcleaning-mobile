@@ -15,6 +15,8 @@ import { RazorpayCheckout, type CheckoutResult } from '../components/RazorpayChe
 import { api, ServiceItem } from '../api';
 import { useCart } from '../cart/CartContext';
 import { session } from '../session';
+import { PinPickerModal } from '../maps/PinPickerModal';
+import type { LatLng } from '../maps/OsmMapView';
 
 const TIME_SLOTS = ['08:00-10:00', '10:00-12:00', '12:00-14:00', '14:00-16:00', '16:00-18:00'];
 
@@ -67,6 +69,10 @@ export function CheckoutScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [timeSlot, setTimeSlot] = useState('');
   const [address, setAddress] = useState('');
+  // V2 (OpenStreetMap): optional map pin for the home.
+  const [homePin, setHomePin] = useState<LatLng | null>(null);
+  const [pinOpen, setPinOpen] = useState(false);
+  const [areaPincode, setAreaPincode] = useState('');
   const [payAdvanceFromWallet, setPayAdvanceFromWallet] = useState(false);
 
   const [walletBalance, setWalletBalance] = useState(0);
@@ -174,6 +180,7 @@ export function CheckoutScreen() {
         address: address.trim(),
         pincode: pin,
         advanceMethod: payAdvanceFromWallet ? 'wallet' : 'razorpay',
+        ...(homePin ? { lat: homePin.lat, lng: homePin.lng } : {}),
       });
 
       if (res.payment.required && res.payment.provider === 'razorpay') {
@@ -359,7 +366,26 @@ export function CheckoutScreen() {
             multiline
             leftIcon={<MapPin size={18} color={theme.colors.textMuted} />}
           />
+          {/* V2: optional map pin — helps the professional find the house. */}
+          <TouchableOpacity
+            style={[styles.pinBtn, homePin && styles.pinBtnSet]}
+            onPress={async () => { setAreaPincode((await session.getPincode()) || ''); setPinOpen(true); }}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+          >
+            {homePin ? <Check size={16} color={theme.colors.success} /> : <MapPin size={16} color={theme.colors.primary600} />}
+            <Text style={[styles.pinBtnText, homePin && { color: theme.colors.success }]}>
+              {homePin ? 'Home marked on the map · Change' : 'Mark your home on the map (optional)'}
+            </Text>
+          </TouchableOpacity>
         </Card>
+        <PinPickerModal
+          visible={pinOpen}
+          initial={homePin}
+          pincode={areaPincode}
+          onClose={() => setPinOpen(false)}
+          onConfirm={(p) => { setHomePin(p); setPinOpen(false); }}
+        />
 
         {/* Payment */}
         <Card style={styles.card}>
@@ -425,6 +451,14 @@ export function CheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
+  // V2 map pin button under the address
+  pinBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2],
+    marginTop: theme.spacing[3], paddingVertical: theme.spacing[3], paddingHorizontal: theme.spacing[3],
+    borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.primary200, backgroundColor: theme.colors.primary50,
+  },
+  pinBtnSet: { borderColor: theme.colors.success, backgroundColor: theme.colors.surface },
+  pinBtnText: { flex: 1, fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.sm, color: theme.colors.primary700 },
   container: { flex: 1, backgroundColor: theme.colors.surfaceSubtle },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

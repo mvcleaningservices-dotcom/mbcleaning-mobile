@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ClipboardList, Calendar, MapPin } from 'lucide-react-native';
+import { ClipboardList, Calendar, MapPin, Navigation, LocateFixed } from 'lucide-react-native';
+import { openDirections } from '../../maps/location';
 
 import { theme } from '../../theme';
 import { Badge } from '../../components/Badge';
@@ -57,6 +58,15 @@ export function VendorOrdersScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} colors={[theme.colors.primary600]} />}
         >
           {!!error && <Text style={styles.error}>{error}</Text>}
+          {/* V2: be upfront about location sharing during a job. */}
+          {orders.some((o) => o.status === 'in_progress') && (
+            <View style={styles.shareNote}>
+              <LocateFixed size={16} color={theme.colors.primary700} />
+              <Text style={styles.shareText}>
+                While a job is In Progress, your location is shared with that customer and MV Cleaning — only while this app is open.
+              </Text>
+            </View>
+          )}
           {orders.length === 0 && !error ? (
             <EmptyState
               icon={<ClipboardList size={28} color={theme.colors.primary600} />}
@@ -93,6 +103,17 @@ function OrderCard({ o }: { o: VendorOrder }) {
         <MapPin size={15} color={theme.colors.textMuted} />
         <Text style={styles.lineText}>{o.address}</Text>
       </View>
+      {['confirmed', 'assigned', 'in_progress'].includes(o.status) && (
+        <TouchableOpacity
+          style={styles.dirBtn}
+          onPress={() => openDirections(o.location, [o.address, o.pincode].filter(Boolean).join(', '))}
+          accessibilityRole="button"
+          accessibilityLabel={`Directions to ${o.orderNumber}`}
+        >
+          <Navigation size={15} color={theme.colors.primary700} />
+          <Text style={styles.dirText}>Directions</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -115,4 +136,8 @@ const styles = StyleSheet.create({
   line: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing[2] },
   lineText: { flex: 1, fontFamily: theme.typography.fontFamily.regular, fontSize: theme.typography.sizes.sm, color: theme.colors.textSecondary },
   error: { color: theme.colors.error, fontFamily: theme.typography.fontFamily.medium, textAlign: 'center' },
+  shareNote: { flexDirection: 'row', gap: theme.spacing[2], alignItems: 'flex-start', padding: theme.spacing[3], borderRadius: theme.radius.md, backgroundColor: theme.colors.primary50, borderWidth: 1, borderColor: theme.colors.primary200 },
+  shareText: { flex: 1, fontFamily: theme.typography.fontFamily.medium, fontSize: theme.typography.sizes.sm, color: theme.colors.primary700 },
+  dirBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: theme.spacing[1], paddingVertical: theme.spacing[2], borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.primary200, backgroundColor: theme.colors.primary50 },
+  dirText: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.sm, color: theme.colors.primary700 },
 });

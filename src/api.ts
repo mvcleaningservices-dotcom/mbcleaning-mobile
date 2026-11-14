@@ -194,9 +194,29 @@ export interface VendorOrder {
   scheduledDate: string;
   timeSlot: string;
   address: string;
+  pincode?: string;
+  /** Customer's pin / looked-up address — for "Directions". */
+  location?: { lat: number; lng: number } | null;
   status: string;
   value: number;
   createdAt: string;
+}
+
+/** V2 maps (OpenStreetMap). */
+export interface GeoPlace {
+  lat: number;
+  lng: number;
+  label: string;
+}
+export interface BookingTracking {
+  orderNumber: string;
+  status: string;
+  address: string;
+  home: { lat: number; lng: number; source?: string } | null;
+  /** Positions are shared only while the job is In Progress. */
+  sharing: boolean;
+  assignedNames: string[];
+  partners: { name: string; lat: number; lng: number; at: string; distanceKm: number | null }[];
 }
 
 export interface RechargePlan {
@@ -347,6 +367,19 @@ export const api = {
   // against what still exists. Only ids are needed here.
   listCatalog: () => req<{ id: string }[]>('/services/catalog'),
 
+  // V2 maps (OpenStreetMap, via our backend — no API key).
+  geoSearch: (token: string, q: string) =>
+    req<GeoPlace[]>(`/geo/search?q=${encodeURIComponent(q)}`, {}, token),
+  bookingTracking: (token: string, bookingId: string) =>
+    req<BookingTracking>(`/bookings/${bookingId}/tracking`, {}, token),
+  /** Vendor phone position — kept by the server only while a job is In Progress. */
+  vendorLocation: (token: string, lat: number, lng: number) =>
+    req<{ sharing: boolean; orders: string[] }>(
+      '/vendor/location',
+      { method: 'POST', body: JSON.stringify({ lat, lng }) },
+      token,
+    ),
+
   // V2 content (public, no login): banners set by the admin + helpline number.
   listBanners: (placement: BannerPlacement, category?: string) =>
     req<BannerItem[]>(
@@ -365,6 +398,9 @@ export const api = {
       address: string;
       pincode?: string;
       advanceMethod?: 'razorpay' | 'wallet';
+      /** V2: optional map pin for the home (OpenStreetMap). */
+      lat?: number;
+      lng?: number;
     },
   ) =>
     req<CreateBookingResult>(

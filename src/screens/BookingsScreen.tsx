@@ -177,6 +177,15 @@ export function BookingsScreen() {
                 <View style={styles.expandedContent}>
                   <View style={styles.divider} />
                   <StatusTimeline status={b.status} />
+                  {/* V2: live tracking while the job is In Progress (OpenStreetMap). */}
+                  {b.status === 'in_progress' && (
+                    <Button
+                      title="Track your professional"
+                      variant="secondary"
+                      onPress={() => navigation.navigate('Tracking', { bookingId: b.id })}
+                      style={{ marginTop: theme.spacing[3] }}
+                    />
+                  )}
                   <View style={styles.divider} />
 
                   <View style={styles.detailRow}>
