@@ -47,6 +47,7 @@ export function OtpScreen() {
   }, [fadeAnim, slideAnim]);
 
   const mobile = route.params?.mobile || '';
+  const purpose: 'login' | 'reset' = route.params?.purpose === 'reset' ? 'reset' : 'login';
   // Held in state, not read straight from params, so a resend can surface the
   // NEW dev code rather than keep showing the stale one.
   const [devOtp, setDevOtp] = useState<string | undefined>(route.params?.devOtp);
@@ -85,7 +86,7 @@ export function OtpScreen() {
     setBusy(true);
     try {
       const res = await api.verifyOtp(mobile, code.trim());
-      await session.saveToken(res.accessToken);
+      await session.saveSession(res.accessToken, 'customer');
       
       // Attempt to load pincode
       let pin = '';
@@ -98,8 +99,15 @@ export function OtpScreen() {
       
       if (pin) await session.savePincode(pin);
 
-      // MV Cleaning is a consumer-only app — no worker/vendor role here.
-      navigation.replace('CustomerApp');
+      // Forgot password → always set a new one. First OTP login (no password
+      // yet) → offer to create one so next time needs no SMS.
+      if (purpose === 'reset') {
+        navigation.reset({ index: 0, routes: [{ name: 'SetPassword', params: { mode: 'reset' } }] });
+      } else if (!res.hasPassword) {
+        navigation.reset({ index: 0, routes: [{ name: 'SetPassword', params: { mode: 'create' } }] });
+      } else {
+        navigation.replace('CustomerApp');
+      }
     } catch (e: any) {
       toast.error(e.message || 'Invalid OTP');
     } finally {
@@ -162,7 +170,7 @@ export function OtpScreen() {
             />
           </Pressable>
           <Button
-            title="Verify & Login"
+            title={purpose === 'reset' ? 'Verify OTP' : 'Verify & Login'}
             onPress={verify}
             loading={busy}
             disabled={code.length < 6}

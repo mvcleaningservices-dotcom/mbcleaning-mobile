@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Wallet, LogOut, ChevronRight, MapPin, ClipboardList } from 'lucide-react-native';
+import { User, Wallet, LogOut, ChevronRight, MapPin, ClipboardList, KeyRound, Briefcase } from 'lucide-react-native';
 
 import { theme } from '../theme';
 import { Card } from '../components/Card';
@@ -36,6 +36,10 @@ export function ProfileScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  // V2: password status + whether this customer is also a Service Partner.
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  const [vendorName, setVendorName] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
 
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -51,10 +55,29 @@ export function ProfileScreen() {
       setAddress(p.address || '');
       setPincode(p.pincode || '');
       setWallet(w);
+      // Non-blocking extras — the profile still works if these fail.
+      api.passwordStatus(token).then((s) => setHasPassword(s.hasPassword)).catch(() => {});
+      api.vendorAvailable(token).then((v) => setVendorName(v.available ? v.name : null)).catch(() => {});
     } catch (e) {
       // non-critical — keep last known state
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  /** Dual account: hop into the Vendor side without logging out. */
+  const switchToVendor = async () => {
+    const token = await session.getToken();
+    if (!token) return;
+    setSwitching(true);
+    try {
+      const res = await api.switchToVendor(token);
+      await session.saveSession(res.accessToken, 'vendor');
+      navigation.reset({ index: 0, routes: [{ name: 'VendorApp' }] });
+    } catch (e: any) {
+      toast.error(e.message || 'Could not switch to Vendor mode');
+    } finally {
+      setSwitching(false);
     }
   };
 
@@ -135,8 +158,22 @@ export function ProfileScreen() {
             icon={<ClipboardList size={20} color={theme.colors.primary600} />}
             label="My bookings"
             onPress={() => navigation.navigate('BookingsTab')}
-            last
           />
+          <MenuRow
+            icon={<KeyRound size={20} color={theme.colors.primary600} />}
+            label="Login & password"
+            right={hasPassword === false ? <Text style={styles.menuValue}>Not set</Text> : undefined}
+            onPress={() => navigation.navigate('SetPassword', { mode: 'change' })}
+            last={!vendorName}
+          />
+          {vendorName && (
+            <MenuRow
+              icon={<Briefcase size={20} color={theme.colors.primary600} />}
+              label={switching ? 'Switching…' : 'Switch to Vendor mode'}
+              onPress={switchToVendor}
+              last
+            />
+          )}
         </View>
 
         {/* Personal details */}

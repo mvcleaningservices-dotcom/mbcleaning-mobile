@@ -11,6 +11,9 @@ import * as SecureStore from 'expo-secure-store';
  */
 const TOKEN_KEY = 'mv_access_token';
 const PINCODE_KEY = 'mv_pincode';
+/** Which side of the app the stored token is for (V2: vendor mode). */
+const KIND_KEY = 'mv_session_kind';
+export type SessionKind = 'customer' | 'vendor';
 const isWeb = Platform.OS === 'web';
 
 async function setItem(key: string, value: string) {
@@ -39,8 +42,18 @@ export const session = {
   getToken: () => getItem(TOKEN_KEY),
   savePincode: (pincode: string) => setItem(PINCODE_KEY, pincode),
   getPincode: () => getItem(PINCODE_KEY),
+  /** Save the token together with which side it belongs to. */
+  async saveSession(token: string, kind: SessionKind) {
+    await setItem(TOKEN_KEY, token);
+    await setItem(KIND_KEY, kind);
+  },
+  /** Older installs only stored a token — that was always a customer. */
+  async getKind(): Promise<SessionKind> {
+    return (await getItem(KIND_KEY)) === 'vendor' ? 'vendor' : 'customer';
+  },
   async clear() {
     await removeItem(TOKEN_KEY);
     await removeItem(PINCODE_KEY);
+    await removeItem(KIND_KEY);
   },
 };

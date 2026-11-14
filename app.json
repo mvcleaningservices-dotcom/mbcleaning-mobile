@@ -48,7 +48,15 @@
           "backgroundColor": "#014eb4"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MV Cleaning needs access to your photos so Service Partners can upload a profile photo and ID documents.",
+          "cameraPermission": "MV Cleaning needs the camera so Service Partners can take a profile photo or a photo of an ID document.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "extra": {
       "eas": {

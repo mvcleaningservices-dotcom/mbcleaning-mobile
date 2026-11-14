@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, ClipboardList, Wallet, User } from 'lucide-react-native';
+import { Home, ClipboardList, Wallet, User, Zap } from 'lucide-react-native';
 
 import { theme } from '../theme';
 import { setUnauthorizedHandler } from '../api';
@@ -19,12 +19,20 @@ import { CheckoutScreen } from '../screens/CheckoutScreen';
 import { BookingsScreen } from '../screens/BookingsScreen';
 import { WalletScreen } from '../screens/WalletScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { SetPasswordScreen } from '../screens/SetPasswordScreen';
+import { VendorOrdersScreen } from '../screens/vendor/VendorOrdersScreen';
+import { VendorRechargeScreen } from '../screens/vendor/VendorRechargeScreen';
+import { VendorProfileScreen } from '../screens/vendor/VendorProfileScreen';
 
-// MV Cleaning is a CONSUMER-ONLY app — there is no worker/vendor app by design
-// (workers are managed by admins in the web dashboard). Do not add worker routes.
+// Two sides in one app (client V2): the customer app, and Vendor mode for
+// Service Partners ("Login as Vendor" on the login screen, or "Switch to Vendor
+// mode" in Account for someone who is both). Vendors only ever see their own
+// orders, profile, documents and recharge — never admin features.
 export type RootStackParamList = {
   Auth: undefined;
   CustomerApp: undefined;
+  VendorApp: undefined;
+  SetPassword: { mode: 'create' | 'reset' | 'change' };
   Services: undefined;
   // Screens use useNavigation<any>()/useRoute<any>(); params passed at runtime
   // (selectedServices, total). Kept loose here to avoid coupling the param list
@@ -95,6 +103,50 @@ function CustomerTabs() {
   );
 }
 
+/** Vendor mode — same look as the customer tabs. */
+function VendorTabs() {
+  const insets = useSafeAreaInsets();
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: theme.colors.primary600,
+        tabBarInactiveTintColor: theme.colors.textMuted,
+        tabBarStyle: {
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.border,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontFamily: theme.typography.fontFamily.medium,
+          fontSize: 12,
+        },
+        tabBarItemStyle: {
+          paddingTop: 2,
+        },
+      }}
+    >
+      <Tab.Screen
+        name="VendorOrdersTab"
+        component={VendorOrdersScreen}
+        options={{ tabBarLabel: 'Orders', tabBarIcon: ({ color, size }) => <ClipboardList color={color} size={size} /> }}
+      />
+      <Tab.Screen
+        name="VendorRechargeTab"
+        component={VendorRechargeScreen}
+        options={{ tabBarLabel: 'Recharge', tabBarIcon: ({ color, size }) => <Zap color={color} size={size} /> }}
+      />
+      <Tab.Screen
+        name="VendorProfileTab"
+        component={VendorProfileScreen}
+        options={{ tabBarLabel: 'Profile', tabBarIcon: ({ color, size }) => <User color={color} size={size} /> }}
+      />
+    </Tab.Navigator>
+  );
+}
+
 export function RootNavigator() {
   useEffect(() => {
     /* If the server ever rejects our token, drop the dead session and return to
@@ -114,6 +166,8 @@ export function RootNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Auth" component={AuthNavigator} />
         <Stack.Screen name="CustomerApp" component={CustomerTabs} />
+        <Stack.Screen name="VendorApp" component={VendorTabs} />
+        <Stack.Screen name="SetPassword" component={SetPasswordScreen} />
 
         {/* Shared / deep screens. headerShown stays false (inherited): each of
             these draws its OWN header with a back button and title, so a stack

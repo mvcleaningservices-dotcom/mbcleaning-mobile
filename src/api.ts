@@ -20,7 +20,12 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
 }
 
 /** The login endpoints — a 401 there is a bad OTP, not an expired session. */
-const AUTH_PATHS = ['/auth/otp/request', '/auth/otp/verify'];
+const AUTH_PATHS = [
+  '/auth/otp/request',
+  '/auth/otp/verify',
+  '/auth/customer/login',
+  '/auth/vendor/login',
+];
 
 async function req<T>(
   path: string,
@@ -125,6 +130,86 @@ export interface WalletState {
   history: WalletTxn[];
 }
 
+/* ── V2: password login + Vendor mode ──────────────────────────────────── */
+
+export interface CustomerSession {
+  accessToken: string;
+  user: AuthUser;
+  hasPassword: boolean;
+}
+
+export interface VendorSession {
+  accessToken: string;
+  partner: { id: string; name: string; username: string };
+}
+
+export type VendorDocType = 'aadhaar' | 'driving_licence' | 'electricity_bill' | 'other';
+
+export interface VendorDocument {
+  id: string;
+  type: VendorDocType;
+  typeLabel: string;
+  uploadedAt: string | null;
+  viewUrl: string;
+}
+
+export interface VendorProfile {
+  id: string;
+  name: string;
+  username: string;
+  contactNumber: string;
+  area: string;
+  services: string[];
+  photoUrl: string;
+  documents: VendorDocument[];
+  planName: string;
+  planExpiresAt: string | null;
+  planActive: boolean;
+}
+
+export interface VendorOrder {
+  orderNumber: string;
+  services: string[];
+  scheduledDate: string;
+  timeSlot: string;
+  address: string;
+  status: string;
+  value: number;
+  createdAt: string;
+}
+
+export interface RechargePlan {
+  id: string;
+  name: string;
+  months: number;
+  price: number;
+}
+
+export interface RechargeOverview {
+  planName: string;
+  planExpiresAt: string | null;
+  planActive: boolean;
+  plans: RechargePlan[];
+  history: {
+    id: string;
+    planName: string;
+    months: number;
+    amount: number;
+    paidAt: string | null;
+    validUntil: string | null;
+  }[];
+}
+
+export interface UploadSignature {
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  folder: string;
+  signature: string;
+  type?: 'authenticated';
+  uploadUrl: string;
+}
+
 export interface CreateBookingResult {
   booking: Booking;
   payment: {
@@ -145,10 +230,84 @@ export const api = {
     }),
 
   verifyOtp: (mobile: string, code: string) =>
-    req<{ accessToken: string; user: AuthUser }>('/auth/otp/verify', {
+    req<CustomerSession>('/auth/otp/verify', {
       method: 'POST',
       body: JSON.stringify({ mobile, code }),
     }),
+
+  // ---- V2: customer password login ----
+  customerLogin: (identifier: string, password: string) =>
+    req<CustomerSession>('/auth/customer/login', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, password }),
+    }),
+  passwordStatus: (token: string) =>
+    req<{ hasPassword: boolean; username: string }>('/auth/customer/password', {}, token),
+  setPassword: (token: string, password: string, username?: string) =>
+    req<{ hasPassword: boolean; username: string }>(
+      '/auth/customer/password',
+      { method: 'PUT', body: JSON.stringify({ password, username }) },
+      token,
+    ),
+
+  // ---- V2: Vendor login + switching ----
+  vendorLogin: (identifier: string, password: string) =>
+    req<VendorSession>('/auth/vendor/login', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, password }),
+    }),
+  vendorAvailable: (token: string) =>
+    req<{ available: boolean; name: string | null }>('/auth/vendor/available', {}, token),
+  switchToVendor: (token: string) =>
+    req<VendorSession>('/auth/vendor/switch', { method: 'POST' }, token),
+  switchToCustomer: (token: string) =>
+    req<CustomerSession>('/auth/customer/switch', { method: 'POST' }, token),
+
+  // ---- V2: Vendor app ----
+  vendorProfile: (token: string) => req<VendorProfile>('/vendor/profile', {}, token),
+  vendorOrders: (token: string) => req<VendorOrder[]>('/partner/orders', {}, token),
+  vendorUploadSignature: (token: string, kind: 'photo' | 'document') =>
+    req<UploadSignature>(
+      '/vendor/upload/signature',
+      { method: 'POST', body: JSON.stringify({ kind }) },
+      token,
+    ),
+  vendorSetPhoto: (token: string, url: string) =>
+    req<VendorProfile>('/vendor/photo', { method: 'PATCH', body: JSON.stringify({ url }) }, token),
+  vendorAddDocument: (
+    token: string,
+    dto: { type: VendorDocType; label?: string; publicId: string; format: string },
+  ) =>
+    req<VendorProfile>('/vendor/documents', { method: 'POST', body: JSON.stringify(dto) }, token),
+  vendorRemoveDocument: (token: string, id: string) =>
+    req<VendorProfile>(`/vendor/documents/${id}`, { method: 'DELETE' }, token),
+  vendorRecharge: (token: string) => req<RechargeOverview>('/vendor/recharge', {}, token),
+  vendorRechargeOrder: (token: string, planId: string) =>
+    req<{
+      paymentId: string;
+      payment: {
+        required: boolean;
+        provider: 'razorpay' | 'test';
+        razorpayOrderId?: string;
+        keyId?: string;
+        amount: number;
+      };
+    }>('/vendor/recharge/order', { method: 'POST', body: JSON.stringify({ planId }) }, token),
+  vendorRechargeVerify: (
+    token: string,
+    payload: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string },
+  ) =>
+    req<RechargeOverview>(
+      '/vendor/recharge/verify',
+      { method: 'POST', body: JSON.stringify(payload) },
+      token,
+    ),
+  vendorRechargeTestConfirm: (token: string, paymentId: string) =>
+    req<RechargeOverview>(
+      '/vendor/recharge/test-confirm',
+      { method: 'POST', body: JSON.stringify({ paymentId }) },
+      token,
+    ),
 
   me: (token: string) =>
     req<{ role: string; user: AuthUser }>('/auth/me', {}, token),
