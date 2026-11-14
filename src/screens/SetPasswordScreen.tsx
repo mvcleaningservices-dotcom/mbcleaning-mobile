@@ -50,6 +50,9 @@ export function SetPasswordScreen() {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // The username on file; null until loaded. An empty username clears it on
+  // the server, so "" is only sent once we know what was there.
+  const [loadedUsername, setLoadedUsername] = useState<string | null>(null);
 
   // Keep the existing username when resetting/changing.
   useEffect(() => {
@@ -58,7 +61,8 @@ export function SetPasswordScreen() {
       if (!t) return;
       try {
         const s = await api.passwordStatus(t);
-        setUsername(s.username);
+        setLoadedUsername(s.username);
+        setUsername((cur) => cur || s.username);
       } catch {
         /* optional */
       }
@@ -82,7 +86,8 @@ export function SetPasswordScreen() {
     if (!t) return setError('Your session has expired. Please log in again.');
     setBusy(true);
     try {
-      await api.setPassword(t, password, u);
+      // Blank box + username not loaded yet → leave the saved username alone.
+      await api.setPassword(t, password, u === '' && loadedUsername === null ? undefined : u);
       toast.success(mode === 'create' ? 'Password created.' : 'Password updated.');
       done();
     } catch (e: any) {
