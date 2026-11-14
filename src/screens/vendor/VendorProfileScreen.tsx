@@ -163,9 +163,14 @@ export function VendorProfileScreen() {
               {!!p.area && <Text style={styles.muted}>{p.area}</Text>}
             </View>
           </View>
+          {/* Profile photo: the round picture above. Camera = new selfie,
+              gallery = a photo already on the phone. */}
+          <Text style={[styles.muted, { marginTop: theme.spacing[3] }]}>
+            {p.photoUrl ? 'Change your profile photo:' : 'Add your profile photo:'}
+          </Text>
           <View style={styles.btnRow}>
-            <SmallBtn icon={<Camera size={16} color={theme.colors.primary600} />} label="Take photo" onPress={() => changePhoto('camera')} disabled={!!uploading} />
-            <SmallBtn icon={<ImageIcon size={16} color={theme.colors.primary600} />} label={p.photoUrl ? 'Change photo' : 'Add photo'} onPress={() => changePhoto('library')} disabled={!!uploading} />
+            <SmallBtn icon={<Camera size={16} color={theme.colors.primary600} />} label="Take selfie" onPress={() => changePhoto('camera')} disabled={!!uploading} />
+            <SmallBtn icon={<ImageIcon size={16} color={theme.colors.primary600} />} label="From gallery" onPress={() => changePhoto('library')} disabled={!!uploading} />
           </View>
           {p.services.length > 0 && (
             <Text style={[styles.muted, { marginTop: theme.spacing[3] }]}>Services: {p.services.join(', ')}</Text>
