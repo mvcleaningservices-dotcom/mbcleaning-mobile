@@ -147,13 +147,25 @@ export function VendorProfileScreen() {
         {/* Photo + identity */}
         <View style={styles.card}>
           <View style={styles.identity}>
-            <View style={styles.avatar}>
-              {uploading === 'photo'
-                ? <ActivityIndicator color={theme.colors.primary600} />
-                : p.photoUrl
-                  ? <Image source={{ uri: p.photoUrl }} style={styles.avatarImg} accessibilityLabel="Your profile photo" />
-                  : <User size={32} color={theme.colors.primary600} />}
-            </View>
+            {/* Tap the circle to take a selfie (same as the button below). */}
+            <TouchableOpacity
+              onPress={() => changePhoto('camera')}
+              disabled={!!uploading}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={p.photoUrl ? 'Change profile photo' : 'Add profile photo'}
+            >
+              <View style={styles.avatar}>
+                {uploading === 'photo'
+                  ? <ActivityIndicator color={theme.colors.primary600} />
+                  : p.photoUrl
+                    ? <Image source={{ uri: p.photoUrl }} style={styles.avatarImg} />
+                    : <User size={32} color={theme.colors.primary600} />}
+              </View>
+              <View style={styles.avatarBadge}>
+                <Camera size={13} color={theme.colors.textInverse} />
+              </View>
+            </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{p.name}</Text>
               <View style={styles.inline}>
@@ -163,14 +175,14 @@ export function VendorProfileScreen() {
               {!!p.area && <Text style={styles.muted}>{p.area}</Text>}
             </View>
           </View>
-          {/* Profile photo: the round picture above. Camera = new selfie,
-              gallery = a photo already on the phone. */}
-          <Text style={[styles.muted, { marginTop: theme.spacing[3] }]}>
-            {p.photoUrl ? 'Change your profile photo:' : 'Add your profile photo:'}
-          </Text>
+          {/* One action: opens the camera for a selfie. */}
           <View style={styles.btnRow}>
-            <SmallBtn icon={<Camera size={16} color={theme.colors.primary600} />} label="Take selfie" onPress={() => changePhoto('camera')} disabled={!!uploading} />
-            <SmallBtn icon={<ImageIcon size={16} color={theme.colors.primary600} />} label="From gallery" onPress={() => changePhoto('library')} disabled={!!uploading} />
+            <SmallBtn
+              icon={<Camera size={16} color={theme.colors.primary600} />}
+              label={p.photoUrl ? 'Change profile photo' : 'Add profile photo'}
+              onPress={() => changePhoto('camera')}
+              disabled={!!uploading}
+            />
           </View>
           {p.services.length > 0 && (
             <Text style={[styles.muted, { marginTop: theme.spacing[3] }]}>Services: {p.services.join(', ')}</Text>
@@ -272,6 +284,13 @@ const styles = StyleSheet.create({
   identity: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[4] },
   avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: theme.colors.primary50, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   avatarImg: { width: 72, height: 72 },
+  avatarBadge: {
+    position: 'absolute', right: -2, bottom: -2,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: theme.colors.primary600,
+    borderWidth: 2, borderColor: theme.colors.surface,
+    justifyContent: 'center', alignItems: 'center',
+  },
   name: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.lg, color: theme.colors.textPrimary },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   muted: { fontFamily: theme.typography.fontFamily.regular, fontSize: theme.typography.sizes.sm, color: theme.colors.textSecondary },
