@@ -15,6 +15,8 @@ import { api, ServiceItem } from '../api';
 import { useCart } from '../cart/CartContext';
 import { useServiceDetail } from '../detail/ServiceDetailContext';
 import { session } from '../session';
+import { BannerSlider } from '../components/BannerSlider';
+import { useBanners, openExternal, BannerItem } from '../content/useContent';
 
 export function ServicesScreen() {
   const [services, setServices] = useState<ServiceItem[]>([]);
@@ -65,6 +67,21 @@ export function ServicesScreen() {
 
   const categories = ['All', ...Array.from(new Set(services.map((s) => s.category).filter(Boolean) as string[]))];
   const visible = activeCategory === 'All' ? services : services.filter((s) => s.category === activeCategory);
+
+  // V2: banners for the chosen category (none for "All", none while searching).
+  const categoryBanners = useBanners(activeCategory !== 'All' && !search ? 'category' : null, activeCategory);
+  const onBannerPress = (b: BannerItem) => {
+    if (b.linkType === 'service') {
+      const s = services.find((x) => x.id === b.linkValue);
+      if (s) openDetail(s);
+      else toast.show('This service isn’t available in your area yet.');
+    } else if (b.linkType === 'category') {
+      if (services.some((x) => x.category === b.linkValue)) setActiveCategory(b.linkValue);
+      else toast.show('These services aren’t available in your area yet.');
+    } else if (b.linkType === 'external') {
+      openExternal(b.linkValue);
+    }
+  };
 
   const proceedToCheckout = () => {
     if (selectedList.length === 0) return;
@@ -127,6 +144,9 @@ export function ServicesScreen() {
         />
       ) : (
         <Animated.ScrollView style={[styles.scrollArea, { opacity: fade }]} contentContainerStyle={styles.scrollContent}>
+          {categoryBanners.length > 0 && (
+            <BannerSlider banners={categoryBanners} onPress={onBannerPress} />
+          )}
           {visible.map((s) => {
             const isSel = has(s.id);
             return (

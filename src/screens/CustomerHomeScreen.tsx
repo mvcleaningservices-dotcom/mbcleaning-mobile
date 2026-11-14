@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Search, PackageSearch, Plus, Check, Sparkles } from 'lucide-react-native';
+import { MapPin, Search, PackageSearch, Plus, Check, Sparkles, Phone } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { theme } from '../theme';
@@ -18,6 +18,21 @@ import { useCart } from '../cart/CartContext';
 import { useServiceDetail } from '../detail/ServiceDetailContext';
 import { CartBar } from '../components/CartBar';
 import { session } from '../session';
+import { BannerSlider } from '../components/BannerSlider';
+import { useAppConfig, useBanners, callHelpline, openExternal, BannerItem } from '../content/useContent';
+
+/** The built-in home banner. Shown alone when the admin hasn't uploaded any. */
+function DefaultBanner({ fill }: { fill?: boolean }) {
+  return (
+    <View style={fill ? styles.bannerFill : styles.banner}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.bannerTitle}>Sparkling homes, hassle-free</Text>
+        <Text style={styles.bannerSub}>Vetted professionals · transparent pricing</Text>
+      </View>
+      <Sparkles size={26} color="rgba(255,255,255,0.9)" />
+    </View>
+  );
+}
 
 function greetingPrefix() {
   const h = new Date().getHours();
@@ -41,6 +56,16 @@ export function CustomerHomeScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // V2: admin-managed banners + helpline. Fetched only once the service list
+  // is showing; each section stays hidden unless the admin has a live banner.
+  const { config } = useAppConfig();
+  const homeBanners = useBanners(hasPincode ? 'home' : null);
+  const promoBanners = useBanners(hasPincode ? 'promo' : null);
+  const categoryBanners = useBanners(
+    hasPincode && activeCategory !== 'All' ? 'category' : null,
+    activeCategory,
+  );
 
   // Unconditional animation hooks for the Pincode entry screen
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -143,6 +168,24 @@ export function CustomerHomeScreen() {
     setServices([]);
   };
 
+  /** A banner tap: open the service, switch category, or open the web link. */
+  const onBannerPress = (b: BannerItem) => {
+    if (b.linkType === 'service') {
+      const s = services.find((x) => x.id === b.linkValue);
+      if (s) openDetail(s);
+      else toast.show('This service isn’t available in your area yet.');
+    } else if (b.linkType === 'category') {
+      if (services.some((x) => x.category === b.linkValue)) {
+        setSearch('');
+        setActiveCategory(b.linkValue);
+      } else {
+        toast.show('These services aren’t available in your area yet.');
+      }
+    } else if (b.linkType === 'external') {
+      openExternal(b.linkValue);
+    }
+  };
+
   // ── Pincode entry ──────────────────────────────────────────────
   if (!hasPincode) {
     return (
@@ -199,15 +242,29 @@ export function CustomerHomeScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      <View style={[styles.topHeader, { paddingTop: insets.top + theme.spacing[3] }]}>
-        <View style={styles.locationRow}>
-          <MapPin size={13} color={theme.colors.primary600} />
-          <Text style={styles.locationText}>Serving {pincode}</Text>
-          <TouchableOpacity onPress={changePincode} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.changeText}>Change</Text>
-          </TouchableOpacity>
+      <View style={[styles.topHeader, styles.headerRow, { paddingTop: insets.top + theme.spacing[3] }]}>
+        <View style={{ flex: 1 }}>
+          <View style={styles.locationRow}>
+            <MapPin size={13} color={theme.colors.primary600} />
+            <Text style={styles.locationText}>Serving {pincode}</Text>
+            <TouchableOpacity onPress={changePincode} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.changeText}>Change</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.greeting}>{greeting}</Text>
         </View>
-        <Text style={styles.greeting}>{greeting}</Text>
+        {!!config.helplineNumber && (
+          <TouchableOpacity
+            style={styles.helpBtn}
+            onPress={() => callHelpline(config.helplineNumber)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`Call emergency helpline ${config.helplineNumber}`}
+          >
+            <Phone size={15} color={theme.colors.error} />
+            <Text style={styles.helpText}>Helpline</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.searchContainer}>
@@ -239,14 +296,19 @@ export function CustomerHomeScreen() {
           <>
             {!isSearching && (
               <>
-                {/* Honest value-prop banner — no fabricated discount */}
-                <View style={styles.banner}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.bannerTitle}>Sparkling homes, hassle-free</Text>
-                    <Text style={styles.bannerSub}>Vetted professionals · transparent pricing</Text>
-                  </View>
-                  <Sparkles size={26} color="rgba(255,255,255,0.9)" />
-                </View>
+                {/* Home banner spot. No uploaded banners → the built-in
+                    banner exactly as before. With uploads they slide, and the
+                    built-in one stays first unless the admin turned it off. */}
+                {homeBanners.length === 0 ? (
+                  <DefaultBanner />
+                ) : (
+                  <BannerSlider
+                    banners={homeBanners}
+                    leading={config.showDefaultHomeBanner ? <DefaultBanner fill /> : undefined}
+                    onPress={onBannerPress}
+                    style={styles.sliderSpot}
+                  />
+                )}
 
                 {categories.length > 2 && (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll} contentContainerStyle={styles.catContent}>
@@ -259,6 +321,11 @@ export function CustomerHomeScreen() {
                       );
                     })}
                   </ScrollView>
+                )}
+
+                {/* Category banners — only for the chosen category, only if live. */}
+                {activeCategory !== 'All' && categoryBanners.length > 0 && (
+                  <BannerSlider banners={categoryBanners} onPress={onBannerPress} style={styles.sliderSpot} />
                 )}
 
                 {popular.length > 0 && activeCategory === 'All' && (
@@ -285,6 +352,14 @@ export function CustomerHomeScreen() {
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
+                  </>
+                )}
+
+                {/* Promotions — a new section, shown only while a promo banner is live. */}
+                {activeCategory === 'All' && promoBanners.length > 0 && (
+                  <>
+                    <Text style={styles.sectionTitle}>Offers & updates</Text>
+                    <BannerSlider banners={promoBanners} onPress={onBannerPress} />
                   </>
                 )}
               </>
@@ -398,6 +473,22 @@ const styles = StyleSheet.create({
     padding: theme.spacing[5], marginTop: theme.spacing[4],
     ...theme.shadows.md,
   },
+  // Same look, filling a slide of the banner slider.
+  bannerFill: {
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    backgroundColor: theme.colors.primary600,
+    padding: theme.spacing[5],
+  },
+  sliderSpot: { marginTop: theme.spacing[4] },
+
+  // Helpline (V2) — top-right of the header, only when the admin set a number.
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[3] },
+  helpBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: theme.spacing[2], paddingHorizontal: theme.spacing[3],
+    borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.error,
+  },
+  helpText: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.sm, color: theme.colors.error },
   bannerTitle: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.lg, color: theme.colors.textInverse, marginBottom: 2 },
   bannerSub: { fontFamily: theme.typography.fontFamily.regular, fontSize: theme.typography.sizes.sm, color: 'rgba(255,255,255,0.85)' },
 

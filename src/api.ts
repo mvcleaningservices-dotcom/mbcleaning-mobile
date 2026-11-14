@@ -87,6 +87,27 @@ export interface PopularService extends ServiceItem {
   bookingCount: number;
 }
 
+/** V2 banners — only banners that are live today (IST) come back. */
+export type BannerPlacement = 'home' | 'category' | 'promo';
+export interface BannerItem {
+  id: string;
+  placement: BannerPlacement;
+  category: string;
+  imageDesktop: string;
+  /** Phone image (falls back to the desktop image on the server). */
+  imageMobile: string;
+  alt: string;
+  linkType: 'none' | 'service' | 'category' | 'external';
+  linkValue: string;
+}
+
+export interface AppContentConfig {
+  /** Emergency helpline; empty = hide the button. */
+  helplineNumber: string;
+  /** Keep the built-in home banner in the slider alongside uploaded ones. */
+  showDefaultHomeBanner: boolean;
+}
+
 export interface Booking {
   id: string;
   orderNumber: string;
@@ -325,6 +346,15 @@ export const api = {
   // Full active catalogue (no pincode filter) — used to reconcile a saved cart
   // against what still exists. Only ids are needed here.
   listCatalog: () => req<{ id: string }[]>('/services/catalog'),
+
+  // V2 content (public, no login): banners set by the admin + helpline number.
+  listBanners: (placement: BannerPlacement, category?: string) =>
+    req<BannerItem[]>(
+      `/content/banners?placement=${placement}${
+        category ? `&category=${encodeURIComponent(category)}` : ''
+      }`,
+    ),
+  contentConfig: () => req<AppContentConfig>('/content/config'),
 
   createBooking: (
     token: string,
