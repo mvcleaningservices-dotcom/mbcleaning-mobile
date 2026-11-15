@@ -19,8 +19,8 @@ import { useServiceDetail } from '../detail/ServiceDetailContext';
 import { CartBar } from '../components/CartBar';
 import { session } from '../session';
 import { BannerSlider } from '../components/BannerSlider';
-import { useAppConfig, useBanners, callHelpline, openExternal, openWhatsApp, BannerItem } from '../content/useContent';
-import { WhatsAppIcon } from '../components/WhatsAppIcon';
+import { useAppConfig, useBanners, callHelpline, openExternal, BannerItem } from '../content/useContent';
+import { WhatsAppFab } from '../components/WhatsAppFab';
 
 /** The built-in home banner. Shown alone when the admin hasn't uploaded any. */
 function DefaultBanner({ fill }: { fill?: boolean }) {
@@ -254,7 +254,8 @@ export function CustomerHomeScreen() {
           </View>
           <Text style={styles.greeting}>{greeting}</Text>
         </View>
-        {/* Top-right: helpline (when set), WhatsApp chat, profile. */}
+        {/* Top-right: helpline (when set) and profile. WhatsApp is the
+            floating button at the bottom-right. */}
         <View style={styles.headerIcons}>
           {!!config.helplineNumber && (
             <TouchableOpacity
@@ -267,15 +268,6 @@ export function CustomerHomeScreen() {
               <Phone size={18} color={theme.colors.error} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity
-            style={[styles.iconBtn, styles.iconWhatsApp]}
-            onPress={openWhatsApp}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Chat with us on WhatsApp"
-          >
-            <WhatsAppIcon size={20} color="#fff" />
-          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.iconBtn, styles.iconProfile]}
             onPress={() => navigation.navigate('ProfileTab')}
@@ -428,6 +420,8 @@ export function CustomerHomeScreen() {
       </ScrollView>
       {/* Sticky cart — without it, adding from Home has nowhere to go. */}
       <CartBar inTabScreen />
+      {/* WhatsApp chat, bottom-right — above the cart bar when it's showing. */}
+      <WhatsAppFab raised={count > 0} />
     </View>
   );
 }
@@ -504,11 +498,10 @@ const styles = StyleSheet.create({
 
   // Helpline (V2) — top-right of the header, only when the admin set a number.
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[3] },
-  // Top-right round icons: helpline · WhatsApp · profile
+  // Top-right round icons: helpline · profile
   headerIcons: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] },
   iconBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
   iconHelp: { borderWidth: 1, borderColor: theme.colors.error, backgroundColor: theme.colors.surface },
-  iconWhatsApp: { backgroundColor: '#25D366' },
   iconProfile: { backgroundColor: theme.colors.primary50, borderWidth: 1, borderColor: theme.colors.primary200 },
   bannerTitle: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.lg, color: theme.colors.textInverse, marginBottom: 2 },
   bannerSub: { fontFamily: theme.typography.fontFamily.regular, fontSize: theme.typography.sizes.sm, color: 'rgba(255,255,255,0.85)' },

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { User, Wallet, LogOut, ChevronRight, MapPin, ClipboardList, KeyRound, Briefcase } from 'lucide-react-native';
 
 import { theme } from '../theme';
+import { WhatsAppFab } from '../components/WhatsAppFab';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -193,6 +194,7 @@ export function ProfileScreen() {
 
         <Text style={styles.version}>MV Cleaning · v1.0.0</Text>
       </ScrollView>
+      <WhatsAppFab />
     </View>
   );
 }

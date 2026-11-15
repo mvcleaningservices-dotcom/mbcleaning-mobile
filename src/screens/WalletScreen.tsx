@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight, Receipt } from 'lucide-react-native';
 
 import { theme } from '../theme';
+import { WhatsAppFab } from '../components/WhatsAppFab';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useToast } from '../components/Toast';
@@ -216,6 +217,7 @@ export function WalletScreen() {
           onCancel={onTopupCancel}
         />
       )}
+      <WhatsAppFab />
     </SafeAreaView>
   );
 }
