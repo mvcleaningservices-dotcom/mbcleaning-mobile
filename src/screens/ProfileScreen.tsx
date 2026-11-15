@@ -180,24 +180,32 @@ export function ProfileScreen() {
           )}
         </View>
 
-        {/* Help & support: helpline (when the admin set one) and WhatsApp chat */}
-        <Text style={styles.groupTitle}>Help & support</Text>
-        <View style={styles.menuGroup}>
-          {!!config.helplineNumber && (
-            <MenuRow
-              icon={<Phone size={20} color={theme.colors.error} />}
-              label="Helpline"
-              right={<Text style={styles.menuValue}>{config.helplineNumber}</Text>}
-              onPress={() => callHelpline(config.helplineNumber)}
-            />
-          )}
-          <MenuRow
-            icon={<WhatsAppIcon size={20} color="#25D366" />}
-            label="Chat with us on WhatsApp"
-            onPress={openWhatsApp}
-            last
-          />
-        </View>
+        {/* Help & support: helpline and WhatsApp — both numbers are set in
+            admin → Settings; each row hides when its number is empty. */}
+        {(!!config.helplineNumber || !!config.whatsappNumber) && (
+          <>
+            <Text style={styles.groupTitle}>Help & support</Text>
+            <View style={styles.menuGroup}>
+              {!!config.helplineNumber && (
+                <MenuRow
+                  icon={<Phone size={20} color={theme.colors.error} />}
+                  label="Helpline"
+                  right={<Text style={styles.menuValue}>{config.helplineNumber}</Text>}
+                  onPress={() => callHelpline(config.helplineNumber)}
+                  last={!config.whatsappNumber}
+                />
+              )}
+              {!!config.whatsappNumber && (
+                <MenuRow
+                  icon={<WhatsAppIcon size={20} color="#25D366" />}
+                  label="Chat with us on WhatsApp"
+                  onPress={() => openWhatsApp(config.whatsappNumber ?? '')}
+                  last
+                />
+              )}
+            </View>
+          </>
+        )}
 
         {/* Personal details */}
         <Card style={styles.profileCard}>

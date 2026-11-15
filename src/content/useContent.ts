@@ -8,7 +8,13 @@ import { api, AppContentConfig, BannerItem, BannerPlacement } from '../api';
  * doesn't show and the rest of the screen works as before.
  */
 
-const EMPTY_CONFIG: AppContentConfig = { helplineNumber: '', showDefaultHomeBanner: true };
+/** Same WhatsApp number the website used before it became an admin setting. */
+const DEFAULT_WHATSAPP_NUMBER = '918151842101';
+const EMPTY_CONFIG: AppContentConfig = {
+  helplineNumber: '',
+  showDefaultHomeBanner: true,
+  whatsappNumber: DEFAULT_WHATSAPP_NUMBER,
+};
 
 /** Live banners for one placement (and category). `null` placement = skip. */
 export function useBanners(placement: BannerPlacement | null, category?: string, reloadKey = 0) {
@@ -36,7 +42,7 @@ export function useAppConfig(reloadKey = 0) {
     let cancelled = false;
     api
       .contentConfig()
-      .then((c) => { if (!cancelled) setConfig(c); })
+      .then((c) => { if (!cancelled) setConfig({ ...EMPTY_CONFIG, ...c }); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoaded(true); });
     return () => { cancelled = true; };
@@ -50,13 +56,12 @@ export function callHelpline(number: string) {
   if (digits) void Linking.openURL(`tel:${digits}`).catch(() => {});
 }
 
-/** Same WhatsApp chat as the website's button (number + greeting). */
-const WHATSAPP_NUMBER = '918151842101';
+/** WhatsApp chat (number from admin → Settings; same greeting as the website). */
 const WHATSAPP_TEXT = "Hi! I'd like to book a cleaning service.";
-export function openWhatsApp() {
-  void Linking.openURL(
-    `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_TEXT)}`,
-  ).catch(() => {});
+export function openWhatsApp(number: string) {
+  const n = number.replace(/\D/g, '');
+  if (!n) return;
+  void Linking.openURL(`https://wa.me/${n}?text=${encodeURIComponent(WHATSAPP_TEXT)}`).catch(() => {});
 }
 
 /** Open an external banner link (https only — the admin form enforces it too). */

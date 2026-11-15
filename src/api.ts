@@ -106,6 +106,8 @@ export interface AppContentConfig {
   helplineNumber: string;
   /** Keep the built-in home banner in the slider alongside uploaded ones. */
   showDefaultHomeBanner: boolean;
+  /** WhatsApp chat number set in admin (91XXXXXXXXXX); empty = hidden. */
+  whatsappNumber?: string;
 }
 
 export interface Booking {
