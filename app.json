@@ -3,7 +3,7 @@
     "name": "MV Cleaning Services",
     "slug": "mv-cleaning-services",
     "scheme": "mvcleaning",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -24,12 +24,24 @@
       "predictiveBackGestureEnabled": false,
       "_queriesComment": "Android 11+ hides other apps unless they are declared here. Without this, Linking.canOpenURL/openURL fails for UPI apps even when they ARE installed, and Razorpay checkout dead-ends at 'web page not available'.",
       "queries": [
-        { "scheme": "upi" },
-        { "scheme": "tez" },
-        { "scheme": "phonepe" },
-        { "scheme": "paytmmp" },
-        { "scheme": "bhim" },
-        { "scheme": "credpay" }
+        {
+          "scheme": "upi"
+        },
+        {
+          "scheme": "tez"
+        },
+        {
+          "scheme": "phonepe"
+        },
+        {
+          "scheme": "paytmmp"
+        },
+        {
+          "scheme": "bhim"
+        },
+        {
+          "scheme": "credpay"
+        }
       ]
     },
     "web": {
@@ -64,7 +76,8 @@
           "isAndroidBackgroundLocationEnabled": false,
           "isIosBackgroundLocationEnabled": false
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {

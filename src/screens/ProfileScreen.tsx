@@ -222,7 +222,7 @@ export function ProfileScreen() {
           <Text style={styles.logoutText}>Log out</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>MV Cleaning · v1.0.0</Text>
+        <Text style={styles.version}>MV Cleaning · v1.1.0</Text>
       </ScrollView>
     </View>
   );
