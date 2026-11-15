@@ -2,10 +2,11 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Wallet, LogOut, ChevronRight, MapPin, ClipboardList, KeyRound, Briefcase } from 'lucide-react-native';
+import { User, Wallet, LogOut, ChevronRight, MapPin, ClipboardList, KeyRound, Briefcase, Phone } from 'lucide-react-native';
 
 import { theme } from '../theme';
-import { WhatsAppFab } from '../components/WhatsAppFab';
+import { WhatsAppIcon } from '../components/WhatsAppIcon';
+import { useAppConfig, callHelpline, openWhatsApp } from '../content/useContent';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -45,6 +46,8 @@ export function ProfileScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  // V2: helpline number set by the admin (Help & support).
+  const { config } = useAppConfig();
 
   const fetchData = async () => {
     try {
@@ -177,6 +180,25 @@ export function ProfileScreen() {
           )}
         </View>
 
+        {/* Help & support: helpline (when the admin set one) and WhatsApp chat */}
+        <Text style={styles.groupTitle}>Help & support</Text>
+        <View style={styles.menuGroup}>
+          {!!config.helplineNumber && (
+            <MenuRow
+              icon={<Phone size={20} color={theme.colors.error} />}
+              label="Helpline"
+              right={<Text style={styles.menuValue}>{config.helplineNumber}</Text>}
+              onPress={() => callHelpline(config.helplineNumber)}
+            />
+          )}
+          <MenuRow
+            icon={<WhatsAppIcon size={20} color="#25D366" />}
+            label="Chat with us on WhatsApp"
+            onPress={openWhatsApp}
+            last
+          />
+        </View>
+
         {/* Personal details */}
         <Card style={styles.profileCard}>
           <Text style={styles.sectionTitle}>Personal details</Text>
@@ -194,7 +216,6 @@ export function ProfileScreen() {
 
         <Text style={styles.version}>MV Cleaning · v1.0.0</Text>
       </ScrollView>
-      <WhatsAppFab />
     </View>
   );
 }
@@ -216,6 +237,7 @@ const styles = StyleSheet.create({
   identityName: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.lg, color: theme.colors.textPrimary },
   identityMobile: { fontFamily: theme.typography.fontFamily.regular, fontSize: theme.typography.sizes.sm, color: theme.colors.textSecondary, marginTop: 2 },
 
+  groupTitle: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.sm, color: theme.colors.textSecondary, marginTop: theme.spacing[2], marginBottom: -theme.spacing[1], marginLeft: theme.spacing[1] },
   menuGroup: { backgroundColor: theme.colors.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, overflow: 'hidden' },
   menuRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: theme.spacing[4], paddingHorizontal: theme.spacing[4], gap: theme.spacing[3] },
   menuRowBorder: { borderBottomWidth: 1, borderBottomColor: theme.colors.borderLight },

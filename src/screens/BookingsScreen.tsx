@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ClipboardList, ChevronDown, ChevronUp, Calendar, User, Check, XCircle } from 'lucide-react-native';
 
 import { theme } from '../theme';
-import { WhatsAppFab } from '../components/WhatsAppFab';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';
@@ -244,7 +243,6 @@ export function BookingsScreen() {
           );
         }}
       />
-      <WhatsAppFab />
     </View>
   );
 }

@@ -20,7 +20,6 @@ import { CartBar } from '../components/CartBar';
 import { session } from '../session';
 import { BannerSlider } from '../components/BannerSlider';
 import { useAppConfig, useBanners, callHelpline, openExternal, BannerItem } from '../content/useContent';
-import { WhatsAppFab } from '../components/WhatsAppFab';
 
 /** The built-in home banner. Shown alone when the admin hasn't uploaded any. */
 function DefaultBanner({ fill }: { fill?: boolean }) {
@@ -254,8 +253,8 @@ export function CustomerHomeScreen() {
           </View>
           <Text style={styles.greeting}>{greeting}</Text>
         </View>
-        {/* Top-right: helpline (when set) and profile. WhatsApp is the
-            floating button at the bottom-right. */}
+        {/* Top-right: helpline (when set) and profile. WhatsApp + helpline
+            are also in Profile → Help & support. */}
         <View style={styles.headerIcons}>
           {!!config.helplineNumber && (
             <TouchableOpacity
@@ -420,8 +419,6 @@ export function CustomerHomeScreen() {
       </ScrollView>
       {/* Sticky cart — without it, adding from Home has nowhere to go. */}
       <CartBar inTabScreen />
-      {/* WhatsApp chat, bottom-right — above the cart bar when it's showing. */}
-      <WhatsAppFab raised={count > 0} />
     </View>
   );
 }
