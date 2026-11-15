@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Lock, AtSign, ArrowLeft, KeyRound } from 'lucide-react-native';
 
 import { theme } from '../theme';
+import { PasswordEye } from '../components/PasswordEye';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useToast } from '../components/Toast';
@@ -134,6 +135,7 @@ export function SetPasswordScreen() {
               value={password}
               onChangeText={setPassword}
               leftIcon={<Lock size={18} color={theme.colors.textMuted} />}
+              rightAccessory={<PasswordEye shown={show} onToggle={() => setShow((v) => !v)} />}
             />
             <Input
               label="Confirm password"
@@ -144,10 +146,8 @@ export function SetPasswordScreen() {
               onChangeText={setConfirm}
               onSubmitEditing={save}
               leftIcon={<Lock size={18} color={theme.colors.textMuted} />}
+              rightAccessory={<PasswordEye shown={show} onToggle={() => setShow((v) => !v)} />}
             />
-            <TouchableOpacity onPress={() => setShow((v) => !v)} style={{ marginBottom: theme.spacing[4] }}>
-              <Text style={styles.linkMuted}>{show ? 'Hide passwords' : 'Show passwords'}</Text>
-            </TouchableOpacity>
 
             {!!error && <Text style={styles.error}>{error}</Text>}
 

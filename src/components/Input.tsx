@@ -6,9 +6,11 @@ interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   leftIcon?: React.ReactNode;
+  /** Optional control inside the box on the right (e.g. the password eye). */
+  rightAccessory?: React.ReactNode;
 }
 
-export function Input({ label, error, leftIcon, style, multiline, onFocus, onBlur, ...props }: InputProps) {
+export function Input({ label, error, leftIcon, rightAccessory, style, multiline, onFocus, onBlur, ...props }: InputProps) {
   const [isFocused, setIsFocused] = useState(false);
 
   const handleFocus = (e: any) => {
@@ -45,6 +47,7 @@ export function Input({ label, error, leftIcon, style, multiline, onFocus, onBlu
           onBlur={handleBlur}
           {...props}
         />
+        {rightAccessory && <View style={styles.rightAccessory}>{rightAccessory}</View>}
       </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
@@ -86,12 +89,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  rightAccessory: {
+    paddingRight: theme.spacing[1],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   iconContainerMultiline: {
     // Align the icon with the first line of text instead of the vertical center.
     paddingTop: 14,
   },
   input: {
     flex: 1,
+    // Lets the text box shrink so a right-side control (password eye) stays
+    // inside the border — browsers give inputs a default minimum width.
+    minWidth: 0,
     height: '100%',
     paddingHorizontal: theme.spacing[3],
     fontFamily: theme.typography.fontFamily.regular,

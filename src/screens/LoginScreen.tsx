@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { theme } from '../theme';
+import { PasswordEye } from '../components/PasswordEye';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useToast } from '../components/Toast';
@@ -240,17 +241,15 @@ export function LoginScreen() {
               onChangeText={setPassword}
               onSubmitEditing={passwordLogin}
               leftIcon={<Lock size={20} color={theme.colors.textMuted} />}
+              rightAccessory={<PasswordEye shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />}
             />
-            <View style={styles.row}>
-              <TouchableOpacity onPress={() => setShowPassword((v) => !v)} accessibilityRole="button">
-                <Text style={styles.linkMuted}>{showPassword ? 'Hide password' : 'Show password'}</Text>
-              </TouchableOpacity>
-              {!isVendor && (
+            {!isVendor && (
+              <View style={[styles.row, { justifyContent: 'flex-end' }]}>
                 <TouchableOpacity onPress={() => continueWithOtp('reset')} disabled={!!busy} accessibilityRole="button">
                   <Text style={styles.link}>Forgot password?</Text>
                 </TouchableOpacity>
-              )}
-            </View>
+              </View>
+            )}
 
             <Button
               title={isVendor ? 'Log in as Vendor' : 'Log in'}
