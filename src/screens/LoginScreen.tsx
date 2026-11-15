@@ -192,7 +192,9 @@ export function LoginScreen() {
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: theme.spacing[8] }}>
+        {/* Bottom space includes the phone's navigation bar, so the last line
+            is never hidden behind the system buttons. */}
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: theme.spacing[8] + insets.bottom }}>
           <Animated.View style={[
             styles.card,
             {
@@ -214,7 +216,13 @@ export function LoginScreen() {
                     activeOpacity={0.8}
                   >
                     {m === 'vendor' && <Briefcase size={15} color={sel ? theme.colors.textInverse : theme.colors.textSecondary} />}
-                    <Text style={[styles.segmentText, sel && styles.segmentTextSel]}>
+                    {/* Fits its half on every phone, including phones set to
+                        large text: one line normally, two only when very tight. */}
+                    <Text
+                      style={[styles.segmentText, sel && styles.segmentTextSel]}
+                      numberOfLines={2}
+                      maxFontSizeMultiplier={1.3}
+                    >
                       {m === 'customer' ? 'Customer' : 'Login as Vendor'}
                     </Text>
                   </TouchableOpacity>
@@ -337,15 +345,19 @@ const styles = StyleSheet.create({
   },
   segmentBtn: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     paddingVertical: theme.spacing[2] + 2,
+    paddingHorizontal: theme.spacing[2],
     borderRadius: theme.radius.md,
   },
   segmentBtnSel: { backgroundColor: theme.colors.primary600 },
   segmentText: {
+    flexShrink: 1,
+    textAlign: 'center',
     fontFamily: theme.typography.fontFamily.semiBold,
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
