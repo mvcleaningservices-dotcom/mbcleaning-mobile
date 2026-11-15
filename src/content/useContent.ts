@@ -50,6 +50,15 @@ export function callHelpline(number: string) {
   if (digits) void Linking.openURL(`tel:${digits}`).catch(() => {});
 }
 
+/** Same WhatsApp chat as the website's button (number + greeting). */
+const WHATSAPP_NUMBER = '918151842101';
+const WHATSAPP_TEXT = "Hi! I'd like to book a cleaning service.";
+export function openWhatsApp() {
+  void Linking.openURL(
+    `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_TEXT)}`,
+  ).catch(() => {});
+}
+
 /** Open an external banner link (https only — the admin form enforces it too). */
 export function openExternal(url: string) {
   if (/^https:\/\//.test(url)) void Linking.openURL(url).catch(() => {});

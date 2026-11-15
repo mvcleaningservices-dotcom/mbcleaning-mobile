@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Search, PackageSearch, Plus, Check, Sparkles, Phone } from 'lucide-react-native';
+import { MapPin, Search, PackageSearch, Plus, Check, Sparkles, Phone, User } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { theme } from '../theme';
@@ -19,7 +19,8 @@ import { useServiceDetail } from '../detail/ServiceDetailContext';
 import { CartBar } from '../components/CartBar';
 import { session } from '../session';
 import { BannerSlider } from '../components/BannerSlider';
-import { useAppConfig, useBanners, callHelpline, openExternal, BannerItem } from '../content/useContent';
+import { useAppConfig, useBanners, callHelpline, openExternal, openWhatsApp, BannerItem } from '../content/useContent';
+import { WhatsAppIcon } from '../components/WhatsAppIcon';
 
 /** The built-in home banner. Shown alone when the admin hasn't uploaded any. */
 function DefaultBanner({ fill }: { fill?: boolean }) {
@@ -253,18 +254,38 @@ export function CustomerHomeScreen() {
           </View>
           <Text style={styles.greeting}>{greeting}</Text>
         </View>
-        {!!config.helplineNumber && (
+        {/* Top-right: helpline (when set), WhatsApp chat, profile. */}
+        <View style={styles.headerIcons}>
+          {!!config.helplineNumber && (
+            <TouchableOpacity
+              style={[styles.iconBtn, styles.iconHelp]}
+              onPress={() => callHelpline(config.helplineNumber)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`Call emergency helpline ${config.helplineNumber}`}
+            >
+              <Phone size={18} color={theme.colors.error} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
-            style={styles.helpBtn}
-            onPress={() => callHelpline(config.helplineNumber)}
+            style={[styles.iconBtn, styles.iconWhatsApp]}
+            onPress={openWhatsApp}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel={`Call emergency helpline ${config.helplineNumber}`}
+            accessibilityLabel="Chat with us on WhatsApp"
           >
-            <Phone size={15} color={theme.colors.error} />
-            <Text style={styles.helpText}>Helpline</Text>
+            <WhatsAppIcon size={20} color="#fff" />
           </TouchableOpacity>
-        )}
+          <TouchableOpacity
+            style={[styles.iconBtn, styles.iconProfile]}
+            onPress={() => navigation.navigate('ProfileTab')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="My profile"
+          >
+            <User size={19} color={theme.colors.primary700} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.searchContainer}>
@@ -483,12 +504,12 @@ const styles = StyleSheet.create({
 
   // Helpline (V2) — top-right of the header, only when the admin set a number.
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[3] },
-  helpBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingVertical: theme.spacing[2], paddingHorizontal: theme.spacing[3],
-    borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.error,
-  },
-  helpText: { fontFamily: theme.typography.fontFamily.semiBold, fontSize: theme.typography.sizes.sm, color: theme.colors.error },
+  // Top-right round icons: helpline · WhatsApp · profile
+  headerIcons: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] },
+  iconBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
+  iconHelp: { borderWidth: 1, borderColor: theme.colors.error, backgroundColor: theme.colors.surface },
+  iconWhatsApp: { backgroundColor: '#25D366' },
+  iconProfile: { backgroundColor: theme.colors.primary50, borderWidth: 1, borderColor: theme.colors.primary200 },
   bannerTitle: { fontFamily: theme.typography.fontFamily.bold, fontSize: theme.typography.sizes.lg, color: theme.colors.textInverse, marginBottom: 2 },
   bannerSub: { fontFamily: theme.typography.fontFamily.regular, fontSize: theme.typography.sizes.sm, color: 'rgba(255,255,255,0.85)' },
 
